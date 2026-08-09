@@ -1,0 +1,6 @@
+{
+  "name": "Padel Manager",
+  "description": "Organize and manage private padel games and tournaments in the UAE with partner matching, group generation, round-robin schedules, court rotation, live score entry, standings, and knockout brackets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
