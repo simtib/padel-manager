@@ -1,4 +1,7 @@
-import { GroupStanding, Match, Team, TournamentGroup, TournamentRule } from '../../types';
+import {
+  Participant, PartnerRequest, Team, TournamentGroup, Match,
+  TournamentRule, GroupStanding, User, PlayerProfile, EventItem
+} from '../../types';
 
 export function calculateGroupStandings(
   group: TournamentGroup,
@@ -8,6 +11,7 @@ export function calculateGroupStandings(
 ): GroupStanding[] {
   const standingsMap: Record<string, GroupStanding> = {};
 
+  // Initialize standings for all teams in group
   group.teamIds.forEach((teamId) => {
     const team = teamsMap[teamId];
     const teamName = team ? team.name : 'Team';
@@ -31,6 +35,7 @@ export function calculateGroupStandings(
     };
   });
 
+  // Filter completed group matches for this group
   const groupMatches = matches.filter(
     (m) => m.groupId === group.id && m.stage === 'group' && m.status === 'completed'
   );
@@ -39,7 +44,12 @@ export function calculateGroupStandings(
     const t1 = standingsMap[m.team1Id];
     const t2 = standingsMap[m.team2Id];
 
-    if (!t1 || !t2 || typeof m.team1Score !== 'number' || typeof m.team2Score !== 'number') {
+    if (
+      !t1 ||
+      !t2 ||
+      typeof m.team1Score !== 'number' ||
+      typeof m.team2Score !== 'number'
+    ) {
       return;
     }
 
@@ -58,9 +68,7 @@ export function calculateGroupStandings(
     t2.gamesFor += games2;
     t2.gamesAgainst += games1;
 
-    const winnerId =
-      m.winnerTeamId ||
-      (m.team1Score > m.team2Score ? m.team1Id : m.team2Score > m.team1Score ? m.team2Id : undefined);
+    const winnerId = m.winnerTeamId || (m.team1Score > m.team2Score ? m.team1Id : m.team2Score > m.team1Score ? m.team2Id : undefined);
 
     if (winnerId === m.team1Id) {
       t1.won += 1;
@@ -80,10 +88,12 @@ export function calculateGroupStandings(
     }
   });
 
+  // Calculate difference
   Object.values(standingsMap).forEach((st) => {
     st.difference = st.gamesFor - st.gamesAgainst;
   });
 
+  // Sort by tiebreak order
   const standingsList = Object.values(standingsMap);
 
   standingsList.sort((a, b) => {
@@ -104,9 +114,45 @@ export function calculateGroupStandings(
     return 0;
   });
 
+  // Tag top N as qualified
   for (let i = 0; i < rules.qualifiersPerGroup && i < standingsList.length; i++) {
     standingsList[i].qualified = true;
   }
 
   return standingsList;
 }
+
+/**
+ * 5. Identify Qualifying Teams across all groups
+ */
+export function identifyQualifiers(
+  groups: TournamentGroup[],
+  matches: Match[],
+  teamsMap: Record<string, Team>,
+  rules: TournamentRule
+): Array<{ groupName: string; position: number; team: Team }> {
+  const qualifiers: Array<{ groupName: string; position: number; team: Team }> = [];
+
+  groups.forEach((group) => {
+    const standings = calculateGroupStandings(group, matches, teamsMap, rules);
+    standings
+      .filter((s) => s.qualified)
+      .forEach((s, idx) => {
+        const team = teamsMap[s.teamId];
+        if (team) {
+          qualifiers.push({
+            groupName: group.name,
+            position: idx + 1,
+            team,
+          });
+        }
+      });
+  });
+
+  return qualifiers;
+}
+
+/**
+ * 6. Knockout Bracket Generation
+ * Generates Quarter-Finals, Semi-Finals, and Final
+ */

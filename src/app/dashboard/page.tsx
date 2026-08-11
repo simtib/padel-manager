@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import App from '../../App';
 import { createClient } from '../../lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
@@ -16,17 +18,17 @@ export default function DashboardPage() {
         if (session?.user) {
           setAuthenticated(true);
         } else {
-          window.location.href = '/login';
+          router.replace('/login');
         }
       } catch (err) {
-        window.location.href = '/login';
+        router.replace('/login');
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
-  }, []);
+  }, [router]);
 
   if (loading) {
     return (

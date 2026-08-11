@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { usePadel } from '../context/PadelContext';
 import {
   Trophy,
@@ -9,7 +9,8 @@ import {
   Check,
   X,
   LogOut,
-  MapPin
+  MapPin,
+  Trash2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -27,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuthModal,
   onSelectEvent,
 }) => {
-  const { currentUser, isAuthenticated, notifications, partnerRequests, respondToPartnerRequest, logoutAction } = usePadel();
+  const { currentUser, isAuthenticated, notifications, clearNotifications, partnerRequests, respondToPartnerRequest, logoutAction } = usePadel();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -35,7 +36,16 @@ export const Navbar: React.FC<NavbarProps> = ({
     (r) => r.toUserId === currentUser.id && r.status === 'pending'
   );
 
-  const unreadNotifs = notifications.filter((n) => n.userId === currentUser.id && !n.read);
+  const userNotifications = useMemo(() => {
+    const seenIds = new Set<string>();
+    return notifications.filter((notification) => {
+      if (notification.userId !== currentUser.id || seenIds.has(notification.id)) return false;
+      seenIds.add(notification.id);
+      return true;
+    });
+  }, [currentUser.id, notifications]);
+
+  const unreadNotifs = userNotifications.filter((notification) => !notification.read);
   const totalBadges = pendingRequests.length + unreadNotifs.length;
 
   const handleProfileClick = () => {
@@ -144,12 +154,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <h4 className="font-bold text-sm text-white flex items-center gap-2">
                       <Bell className="w-4 h-4 text-emerald-400" /> Notifications & Requests
                     </h4>
-                    <button
-                      onClick={() => setShowNotifications(false)}
-                      className="text-slate-400 hover:text-white p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {userNotifications.length > 0 && (
+                        <button
+                          onClick={clearNotifications}
+                          className="text-[10px] font-bold text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                          title="Clear all notifications"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Clear
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowNotifications(false)}
+                        className="text-slate-400 hover:text-white p-1"
+                        aria-label="Close notifications"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-3 space-y-3 max-h-80 overflow-y-auto pr-1">
@@ -187,9 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ))}
 
                     {/* General Notifications */}
-                    {notifications
-                      .filter((n) => n.userId === currentUser.id)
-                      .map((notif) => (
+                    {userNotifications.map((notif) => (
                         <div
                           key={notif.id}
                           onClick={() => {
@@ -213,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       ))}
 
                     {pendingRequests.length === 0 &&
-                      notifications.filter((n) => n.userId === currentUser.id).length === 0 && (
+                      userNotifications.length === 0 && (
                         <p className="text-xs text-slate-500 py-6 text-center">
                           No new notifications.
                         </p>

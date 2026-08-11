@@ -1,7 +1,7 @@
 -- Initial Schema Migration for Padel Manager Supabase Database
 
 -- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 1. PROFILES TABLE
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 -- 2. FACILITIES TABLE
 CREATE TABLE IF NOT EXISTS public.facilities (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   address TEXT NOT NULL,
   city TEXT NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.facilities (
 
 -- 3. COURTS TABLE
 CREATE TABLE IF NOT EXISTS public.courts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   facility_id UUID NOT NULL REFERENCES public.facilities(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   court_number INTEGER,
@@ -41,9 +41,9 @@ CREATE TABLE IF NOT EXISTS public.courts (
 
 -- 4. EVENTS TABLE
 CREATE TABLE IF NOT EXISTS public.events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  event_type TEXT NOT NULL CHECK (event_type IN ('normal_game', 'tournament')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('normal_match', 'tournament')),
   name TEXT NOT NULL,
   description TEXT,
   event_date DATE NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS public.event_admins (
 
 -- 7. GUEST PLAYERS TABLE
 CREATE TABLE IF NOT EXISTS public.guest_players (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   created_by UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   claimed_by_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS public.guest_players (
 
 -- 8. EVENT PARTICIPANTS TABLE
 CREATE TABLE IF NOT EXISTS public.event_participants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   guest_player_id UUID REFERENCES public.guest_players(id) ON DELETE CASCADE,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.event_participants (
 
 -- 9. PARTNER REQUESTS TABLE
 CREATE TABLE IF NOT EXISTS public.partner_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   requester_participant_id UUID NOT NULL REFERENCES public.event_participants(id) ON DELETE CASCADE,
   requested_participant_id UUID NOT NULL REFERENCES public.event_participants(id) ON DELETE CASCADE,
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS public.partner_requests (
 
 -- 10. TEAMS TABLE
 CREATE TABLE IF NOT EXISTS public.teams (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   name TEXT,
   team_number INTEGER,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS public.team_members (
 
 -- 12. TOURNAMENT GROUPS TABLE
 CREATE TABLE IF NOT EXISTS public.tournament_groups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   group_order INTEGER NOT NULL DEFAULT 1,
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS public.tournament_group_teams (
 
 -- 14. MATCHES TABLE
 CREATE TABLE IF NOT EXISTS public.matches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   group_id UUID REFERENCES public.tournament_groups(id) ON DELETE CASCADE,
   stage TEXT NOT NULL CHECK (stage IN ('group', 'round_of_16', 'quarter_final', 'semi_final', 'final', 'normal')),
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS public.matches (
 
 -- 15. TOURNAMENT RULES TABLE
 CREATE TABLE IF NOT EXISTS public.tournament_rules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID UNIQUE NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   points_win INTEGER NOT NULL DEFAULT 3,
   points_draw INTEGER NOT NULL DEFAULT 1,
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS public.tournament_rules (
 
 -- 16. PLAYER GROUPS TABLE
 CREATE TABLE IF NOT EXISTS public.player_groups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
@@ -231,6 +231,22 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Auto-generate invite_code for events
+CREATE OR REPLACE FUNCTION public.generate_invite_code()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.invite_code IS NULL OR NEW.invite_code = '' THEN
+    NEW.invite_code := encode(gen_random_bytes(6), 'hex');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_event_created ON public.events;
+CREATE TRIGGER on_event_created
+  BEFORE INSERT ON public.events
+  FOR EACH ROW EXECUTE FUNCTION public.generate_invite_code();
+
 -- ENABLE ROW LEVEL SECURITY (RLS) ON ALL TABLES
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.facilities ENABLE ROW LEVEL SECURITY;
@@ -269,6 +285,19 @@ CREATE POLICY "Facilities editable by creator" ON public.facilities
 CREATE POLICY "Courts are viewable by authenticated users" ON public.courts
   FOR SELECT TO authenticated USING (true);
 
+CREATE POLICY "Courts insertable by authenticated users" ON public.courts
+  FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Courts updatable by facility creator" ON public.courts
+  FOR UPDATE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.facilities WHERE id = courts.facility_id AND created_by = auth.uid())
+  );
+
+CREATE POLICY "Courts deletable by facility creator" ON public.courts
+  FOR DELETE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.facilities WHERE id = courts.facility_id AND created_by = auth.uid())
+  );
+
 -- Events Policies
 CREATE POLICY "Events viewable by authenticated users" ON public.events
   FOR SELECT TO authenticated USING (true);
@@ -289,8 +318,19 @@ CREATE POLICY "Events deletable by owner" ON public.events
 CREATE POLICY "Event courts viewable by authenticated users" ON public.event_courts
   FOR SELECT TO authenticated USING (true);
 
+CREATE POLICY "Event courts insertable by event owner or admin" ON public.event_courts
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND owner_id = auth.uid())
+    OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = event_courts.event_id AND user_id = auth.uid())
+  );
+
 CREATE POLICY "Event admins viewable by authenticated users" ON public.event_admins
   FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Event admins insertable by event owner" ON public.event_admins
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_admins.event_id AND owner_id = auth.uid())
+  );
 
 -- Participants Policies
 CREATE POLICY "Participants viewable by authenticated users" ON public.event_participants
@@ -334,15 +374,92 @@ CREATE POLICY "Teams manageable by event owner or admin" ON public.teams
 CREATE POLICY "Team members viewable by authenticated users" ON public.team_members
   FOR SELECT TO authenticated USING (true);
 
+CREATE POLICY "Team members insertable by event owner or admin" ON public.team_members
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.event_participants ep
+      JOIN public.teams t ON t.id = team_members.team_id
+      JOIN public.events e ON e.id = t.event_id
+      WHERE ep.id = team_members.participant_id
+      AND (e.owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = e.id AND user_id = auth.uid()))
+    )
+  );
+
+CREATE POLICY "Team members updatable by event owner or admin" ON public.team_members
+  FOR UPDATE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.event_participants ep
+      JOIN public.teams t ON t.id = team_members.team_id
+      JOIN public.events e ON e.id = t.event_id
+      WHERE ep.id = team_members.participant_id
+      AND (e.owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = e.id AND user_id = auth.uid()))
+    )
+  );
+
+CREATE POLICY "Team members deletable by event owner or admin" ON public.team_members
+  FOR DELETE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.event_participants ep
+      JOIN public.teams t ON t.id = team_members.team_id
+      JOIN public.events e ON e.id = t.event_id
+      WHERE ep.id = team_members.participant_id
+      AND (e.owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = e.id AND user_id = auth.uid()))
+    )
+  );
+
 -- Groups & Matches
 CREATE POLICY "Tournament groups viewable by authenticated users" ON public.tournament_groups
   FOR SELECT TO authenticated USING (true);
 
+CREATE POLICY "Tournament groups insertable by event owner or admin" ON public.tournament_groups
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND (owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = tournament_groups.event_id AND user_id = auth.uid())))
+  );
+
+CREATE POLICY "Tournament groups updatable by event owner or admin" ON public.tournament_groups
+  FOR UPDATE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND (owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = tournament_groups.event_id AND user_id = auth.uid())))
+  );
+
+CREATE POLICY "Tournament groups deletable by event owner or admin" ON public.tournament_groups
+  FOR DELETE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND (owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = tournament_groups.event_id AND user_id = auth.uid())))
+  );
+
 CREATE POLICY "Tournament group teams viewable by authenticated users" ON public.tournament_group_teams
   FOR SELECT TO authenticated USING (true);
 
+CREATE POLICY "Tournament group teams insertable by event owner or admin" ON public.tournament_group_teams
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.tournament_groups tg
+      JOIN public.events e ON e.id = tg.event_id
+      WHERE tg.id = tournament_group_teams.group_id
+      AND (e.owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = e.id AND user_id = auth.uid()))
+    )
+  );
+
+CREATE POLICY "Tournament group teams updatable by event owner or admin" ON public.tournament_group_teams
+  FOR UPDATE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.tournament_groups tg
+      JOIN public.events e ON e.id = tg.event_id
+      WHERE tg.id = tournament_group_teams.group_id
+      AND (e.owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = e.id AND user_id = auth.uid()))
+    )
+  );
+
+CREATE POLICY "Tournament group teams deletable by event owner or admin" ON public.tournament_group_teams
+  FOR DELETE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.tournament_groups tg
+      JOIN public.events e ON e.id = tg.event_id
+      WHERE tg.id = tournament_group_teams.group_id
+      AND (e.owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = e.id AND user_id = auth.uid()))
+    )
+  );
+
 CREATE POLICY "Matches viewable by authenticated users" ON public.matches
   FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Matches insertable by event owner or admin" ON public.matches
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND (owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = matches.event_id AND user_id = auth.uid())))
+  );
 
 CREATE POLICY "Matches score entry by match participants or event admins" ON public.matches
   FOR UPDATE TO authenticated USING (
@@ -358,6 +475,16 @@ CREATE POLICY "Matches score entry by match participants or event admins" ON pub
 -- Tournament Rules
 CREATE POLICY "Tournament rules viewable by authenticated users" ON public.tournament_rules
   FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Tournament rules insertable by event owner or admin" ON public.tournament_rules
+  FOR INSERT TO authenticated WITH CHECK (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND (owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = tournament_rules.event_id AND user_id = auth.uid())))
+  );
+
+CREATE POLICY "Tournament rules updatable by event owner or admin" ON public.tournament_rules
+  FOR UPDATE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_id AND (owner_id = auth.uid() OR EXISTS (SELECT 1 FROM public.event_admins WHERE event_id = tournament_rules.event_id AND user_id = auth.uid())))
+  );
 
 -- Player Groups
 CREATE POLICY "Player groups viewable by members or owner" ON public.player_groups

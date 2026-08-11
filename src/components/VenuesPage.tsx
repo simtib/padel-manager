@@ -1,74 +1,16 @@
-import React, { useState } from 'react';
-import { Facility } from '../types';
+import React from 'react';
 import { usePadel } from '../context/PadelContext';
 import { MapPin, Star, Plus, Edit2, Trash2, ExternalLink, Check, Building2, Map } from 'lucide-react';
+import { useVenueManager } from './venues/useVenueManager';
 
 export const VenuesPage: React.FC = () => {
   const { facilities, saveFacility, toggleFavoriteFacility, deleteFacility } = usePadel();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const initialToEdit = facilities.find((f) => f.id === editingId);
-
-  const [name, setName] = useState<string>(initialToEdit?.name || '');
-  const [address, setAddress] = useState<string>(initialToEdit?.address || '');
-  const [city, setCity] = useState<string>(initialToEdit?.city || 'Dubai');
-  const [googleMapsUrl, setGoogleMapsUrl] = useState<string>(initialToEdit?.googleMapsUrl || '');
-  const [isFavorite, setIsFavorite] = useState<boolean>(initialToEdit?.isFavorite ?? true);
-  const [courtCount, setCourtCount] = useState<number>(initialToEdit?.courts.length || 4);
-
-  const handleStartCreate = () => {
-    setEditingId(null);
-    setName('');
-    setAddress('');
-    setCity('Dubai');
-    setGoogleMapsUrl('');
-    setIsFavorite(true);
-    setCourtCount(4);
-    setIsEditing(true);
-  };
-
-  const handleStartEdit = (fac: Facility) => {
-    setEditingId(fac.id);
-    setName(fac.name);
-    setAddress(fac.address);
-    setCity(fac.city);
-    setGoogleMapsUrl(fac.googleMapsUrl || '');
-    setIsFavorite(fac.isFavorite ?? false);
-    setCourtCount(fac.courts.length || 4);
-    setIsEditing(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !address.trim()) return;
-
-    const courtsList = Array.from({ length: courtCount }, (_, i) => ({
-      id: `c_${editingId || 'new'}_${i + 1}`,
-      name: `Court ${i + 1}`,
-    }));
-
-    saveFacility({
-      id: editingId || undefined,
-      name: name.trim(),
-      address: address.trim(),
-      city: city.trim() || 'Dubai',
-      country: 'United Arab Emirates',
-      googleMapsUrl: googleMapsUrl.trim(),
-      isFavorite,
-      courts: courtsList,
-    });
-
-    setIsEditing(false);
-    setEditingId(null);
-  };
-
-  const sortedFacilities = [...facilities].sort((a, b) => {
-    if (a.isFavorite && !b.isFavorite) return -1;
-    if (!a.isFavorite && b.isFavorite) return 1;
-    return a.name.localeCompare(b.name);
-  });
+  const { isEditing, setIsEditing, editingId, name, setName, address, setAddress,
+    city, setCity, googleMapsUrl, setGoogleMapsUrl, isFavorite, setIsFavorite,
+    courtCount, setCourtCount, startCreate: handleStartCreate,
+    startEdit: handleStartEdit, submit: handleSubmit, sortedFacilities,
+  } = useVenueManager({ facilities, saveFacility });
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

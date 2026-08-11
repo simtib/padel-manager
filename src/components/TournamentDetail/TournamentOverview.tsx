@@ -280,11 +280,11 @@ export const TournamentOverview: React.FC<TournamentOverviewProps> = ({
           )}
 
           <button
-            onClick={() => {
+            onClick={async () => {
               if (isParticipant) {
                 leaveEvent(event.id);
               } else {
-                joinEvent(event.id, selectedPartnerId || undefined);
+                await joinEvent(event.id, selectedPartnerId || undefined);
               }
             }}
             className={`w-full sm:w-auto px-6 py-3 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${

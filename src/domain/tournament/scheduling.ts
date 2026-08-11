@@ -1,4 +1,7 @@
-import { Match, TournamentGroup } from '../../types';
+import {
+  Participant, PartnerRequest, Team, TournamentGroup, Match,
+  TournamentRule, GroupStanding, User, PlayerProfile, EventItem
+} from '../../types';
 
 export function generateRoundRobinFixtures(
   eventId: string,
@@ -13,6 +16,7 @@ export function generateRoundRobinFixtures(
     const { teamIds } = group;
     if (teamIds.length < 4) return;
 
+    // Pick 2 courts for this group based on group index or available pool
     const hasCourts = availableCourtIds && availableCourtIds.length > 0;
     const court1Id = hasCourts ? (availableCourtIds[(groupIdx * 2) % availableCourtIds.length] || availableCourtIds[0]) : '';
     const court2Id = hasCourts ? (availableCourtIds[(groupIdx * 2 + 1) % availableCourtIds.length] || availableCourtIds[0]) : '';
@@ -22,7 +26,7 @@ export function generateRoundRobinFixtures(
 
     const [A, B, C, D] = teamIds;
 
-    // Round 1: A vs B, C vs D
+    // Round 1
     matches.push({
       id: `match_${eventId}_${matchCounter++}`,
       eventId,
@@ -49,7 +53,7 @@ export function generateRoundRobinFixtures(
       status: 'scheduled',
     });
 
-    // Round 2: A vs C, B vs D
+    // Round 2
     matches.push({
       id: `match_${eventId}_${matchCounter++}`,
       eventId,
@@ -76,7 +80,7 @@ export function generateRoundRobinFixtures(
       status: 'scheduled',
     });
 
-    // Round 3: A vs D, B vs C
+    // Round 3
     matches.push({
       id: `match_${eventId}_${matchCounter++}`,
       eventId,
@@ -106,3 +110,8 @@ export function generateRoundRobinFixtures(
 
   return matches;
 }
+
+/**
+ * 4. Group Table & Standings Recalculation Logic
+ * Dynamically computes standings from raw completed match scores.
+ */

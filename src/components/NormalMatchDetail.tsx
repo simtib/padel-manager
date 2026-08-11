@@ -4,7 +4,7 @@ import { usePadel } from '../context/PadelContext';
 import { ScoreEntryModal } from './ScoreEntryModal';
 import { ManageVenuesModal } from './ManageVenuesModal';
 import { AdminAddPlayerModal } from './AdminAddPlayerModal';
-import { Trophy, Calendar, MapPin, Users, Edit3, ArrowLeft, CheckCircle, UserPlus, LogOut, Clock3, Map, ExternalLink, Star, LayoutGrid, RefreshCw, Settings2, GripVertical, Sparkles, ArrowLeftRight, Check } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Edit3, ArrowLeft, CheckCircle, UserPlus, LogOut, Clock3, Map, ExternalLink, Star, LayoutGrid, RefreshCw, Settings2, GripVertical, Sparkles, ArrowLeftRight, Check, Trash2 } from 'lucide-react';
 
 interface NormalMatchDetailProps {
   event: EventItem;
@@ -24,7 +24,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
   onBack,
   currentUserId,
 }) => {
-  const { joinEvent, leaveEvent, recordMatchScoreAction, facilities, toggleFavoriteFacility, updateTeams } = usePadel();
+  const { joinEvent, leaveEvent, deleteEvent, recordMatchScoreAction, facilities, toggleFavoriteFacility, updateTeams } = usePadel();
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showManageVenuesModal, setShowManageVenuesModal] = useState(false);
   const [showAdminAddPlayerModal, setShowAdminAddPlayerModal] = useState(false);
@@ -148,12 +148,23 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {isAdmin && (
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Delete "${event.name}"? This cannot be undone.`)) return;
+                  if (await deleteEvent(event.id)) onBack();
+                }}
+                className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            )}
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (isParticipant) {
                   leaveEvent(event.id);
                 } else {
-                  joinEvent(event.id);
+                  await joinEvent(event.id);
                 }
               }}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all active:scale-95 shadow-md ${

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/retry-build.mjs",
+    "build:once": "next build",
     "start": "next start",
     "clean": "rm -rf .next",
     "lint": "tsc --noEmit"

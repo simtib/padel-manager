@@ -36,8 +36,8 @@ export const ShareGroupModal: React.FC<ShareGroupModalProps> = ({ group, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative shadow-2xl text-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="share-group-title">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative shadow-2xl text-slate-200 mx-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 hover:bg-slate-800"
@@ -50,7 +50,7 @@ export const ShareGroupModal: React.FC<ShareGroupModalProps> = ({ group, onClose
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-lg text-white">
+            <h3 id="share-group-title" className="font-bold text-lg text-white">
               {isNew ? '🎉 Group Created!' : 'Share Group Invite Link'}
             </h3>
             <p className="text-xs text-slate-400">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { EventItem, Participant, PartnerRequest } from '../../types';
 import { usePadel } from '../../context/PadelContext';
 import { AdminAddPlayerModal } from '../AdminAddPlayerModal';
@@ -47,6 +47,10 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
 
   const isAdmin = isOwner || isCoAdmin;
+  const playersById = useMemo(
+    () => new Map(allPlayers.map((player) => [player.id, player])),
+    [allPlayers]
+  );
 
   const confirmedParticipants = event.participants.filter((p) => p.status === 'confirmed');
   const waitingParticipants = event.participants
@@ -110,7 +114,7 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
             </button>
           ) : (
             <button
-              onClick={() => joinEvent(event.id)}
+              onClick={async () => await joinEvent(event.id)}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4 text-emerald-400" />
@@ -225,7 +229,7 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {confirmedParticipants.map((participant, idx) => {
-            const playerProfile = allPlayers.find((p) => p.id === participant.id);
+            const playerProfile = playersById.get(participant.id);
             const avatar = playerProfile?.avatarUrl || `https://i.pravatar.cc/150?u=${participant.id}`;
 
             return (

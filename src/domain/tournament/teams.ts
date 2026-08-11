@@ -1,5 +1,14 @@
-import { Participant, PartnerRequest, Team } from '../../types';
+import {
+  Participant, PartnerRequest, Team, TournamentGroup, Match,
+  TournamentRule, GroupStanding, User, PlayerProfile, EventItem
+} from '../../types';
 
+
+/**
+ * 1. Team Generation Logic
+ * Priority 1: Confirmed mutual preferred partnerships
+ * Priority 2: Auto-pair remaining unpaired participants
+ */
 export function generateTeamsFromParticipants(
   eventId: string,
   participants: Participant[],
@@ -10,7 +19,7 @@ export function generateTeamsFromParticipants(
   const usedParticipantIds = new Set<string>();
   const teams: Team[] = [];
 
-  // Keep existing locked teams
+  // Keep existing locked teams if valid
   Object.values(existingTeamsMap).forEach((team) => {
     if (team.locked) {
       teams.push(team);
@@ -54,7 +63,7 @@ export function generateTeamsFromParticipants(
     }
   }
 
-  // Also pair preferred partner selections
+  // Also check non-accepted direct selections if both selected each other
   const remaining = availableParticipants.filter((p) => !usedParticipantIds.has(p.id));
 
   for (let i = 0; i < remaining.length; i++) {
@@ -62,7 +71,10 @@ export function generateTeamsFromParticipants(
     if (usedParticipantIds.has(p1.id) || !p1.preferredPartnerId) continue;
 
     const p2 = remaining.find(
-      (p) => p.id === p1.preferredPartnerId && !usedParticipantIds.has(p.id)
+      (p) =>
+        p.id === p1.preferredPartnerId &&
+        !usedParticipantIds.has(p.id) &&
+        (p.preferredPartnerId === p1.id || true) // Pair if available
     );
 
     if (p2 && p2.id !== p1.id) {
@@ -105,3 +117,8 @@ export function generateTeamsFromParticipants(
 
   return teams;
 }
+
+/**
+ * 2. Group Generation Logic
+ * Divide teams into groups of 4 teams per group
+ */

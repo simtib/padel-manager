@@ -42,8 +42,8 @@ export const GroupInviteModal: React.FC<GroupInviteModalProps> = ({ group, share
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 sm:p-8 relative shadow-2xl text-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md overflow-y-auto p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="group-invite-title">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 sm:p-8 relative shadow-2xl text-slate-200 mx-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         {/* Background Ambient Glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -74,7 +74,7 @@ export const GroupInviteModal: React.FC<GroupInviteModalProps> = ({ group, share
                 </span>
               )}
             </div>
-            <h2 className="font-extrabold text-xl sm:text-2xl text-white font-display mt-1">
+            <h2 id="group-invite-title" className="font-extrabold text-xl sm:text-2xl text-white font-display mt-1">
               {group.name}
             </h2>
           </div>

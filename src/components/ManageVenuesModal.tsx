@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Facility } from '../types';
+import React from 'react';
 import { usePadel } from '../context/PadelContext';
 import { MapPin, Star, Plus, Edit2, Trash2, ExternalLink, X, Check, Building2, Map } from 'lucide-react';
+import { useVenueManager } from './venues/useVenueManager';
 
 interface ManageVenuesModalProps {
   onClose: () => void;
@@ -16,79 +16,26 @@ export const ManageVenuesModal: React.FC<ManageVenuesModalProps> = ({
 }) => {
   const { facilities, saveFacility, toggleFavoriteFacility, deleteFacility } = usePadel();
 
-  const [isEditing, setIsEditing] = useState<boolean>(!!initialEditFacilityId);
-  const [editingId, setEditingId] = useState<string | null>(initialEditFacilityId || null);
-
-  const initialToEdit = facilities.find((f) => f.id === initialEditFacilityId);
-
-  const [name, setName] = useState<string>(initialToEdit?.name || '');
-  const [address, setAddress] = useState<string>(initialToEdit?.address || '');
-  const [city, setCity] = useState<string>(initialToEdit?.city || 'Dubai');
-  const [googleMapsUrl, setGoogleMapsUrl] = useState<string>(initialToEdit?.googleMapsUrl || '');
-  const [isFavorite, setIsFavorite] = useState<boolean>(initialToEdit?.isFavorite ?? true);
-  const [courtCount, setCourtCount] = useState<number>(initialToEdit?.courts.length || 4);
-
-  const handleStartCreate = () => {
-    setEditingId(null);
-    setName('');
-    setAddress('');
-    setCity('Dubai');
-    setGoogleMapsUrl('');
-    setIsFavorite(true);
-    setCourtCount(4);
-    setIsEditing(true);
-  };
-
-  const handleStartEdit = (fac: Facility) => {
-    setEditingId(fac.id);
-    setName(fac.name);
-    setAddress(fac.address);
-    setCity(fac.city);
-    setGoogleMapsUrl(fac.googleMapsUrl || '');
-    setIsFavorite(fac.isFavorite ?? false);
-    setCourtCount(fac.courts.length || 4);
-    setIsEditing(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !address.trim()) return;
-
-    // Generate court names
-    const courtsList = Array.from({ length: courtCount }, (_, i) => ({
-      id: `c_${editingId || 'new'}_${i + 1}`,
-      name: `Court ${i + 1}`,
-    }));
-
-    const saved = saveFacility({
-      id: editingId || undefined,
-      name: name.trim(),
-      address: address.trim(),
-      city: city.trim() || 'Dubai',
-      country: 'United Arab Emirates',
-      googleMapsUrl: googleMapsUrl.trim(),
-      isFavorite,
-      courts: courtsList,
-    });
-
-    if (onSelectFacility) {
-      onSelectFacility(saved.id);
-    }
-
-    setIsEditing(false);
-    setEditingId(null);
-  };
-
-  // Sort facilities: Favorites first
-  const sortedFacilities = [...facilities].sort((a, b) => {
-    if (a.isFavorite && !b.isFavorite) return -1;
-    if (!a.isFavorite && b.isFavorite) return 1;
-    return a.name.localeCompare(b.name);
+  const { isEditing, setIsEditing, editingId, name, setName, address, setAddress,
+    city, setCity, googleMapsUrl, setGoogleMapsUrl, isFavorite, setIsFavorite,
+    courtCount, setCourtCount, startCreate: handleStartCreate,
+    startEdit: handleStartEdit, submit: handleSubmit, sortedFacilities,
+  } = useVenueManager({
+    facilities,
+    saveFacility,
+    initialEditFacilityId,
+    onSaved: (facility) => onSelectFacility?.(facility.id),
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl text-slate-200 my-8">
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl text-slate-200 my-8 max-h-[calc(100vh-2rem)] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors"

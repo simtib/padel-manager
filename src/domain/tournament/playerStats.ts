@@ -1,18 +1,21 @@
-import { EventItem, PlayerProfile, Team } from '../../types';
+import {
+  Participant, PartnerRequest, Team, TournamentGroup, Match,
+  TournamentRule, GroupStanding, User, PlayerProfile, EventItem
+} from '../../types';
 
-export function recalculatePlayerStats(events: EventItem[], users: PlayerProfile[]): PlayerProfile[] {
-  const statsMap: Record<
-    string,
-    {
-      eventsPlayed: Set<string>;
-      matchesPlayed: number;
-      matchesWon: number;
-      matchesLost: number;
-      totalGamesWon: number;
-      totalGamesLost: number;
-      recentEvents: Map<string, PlayerProfile['recentEvents'][0]>;
-    }
-  > = {};
+export function recalculatePlayerStats(
+  events: EventItem[],
+  users: PlayerProfile[]
+): PlayerProfile[] {
+  const statsMap: Record<string, {
+    eventsPlayed: Set<string>;
+    matchesPlayed: number;
+    matchesWon: number;
+    matchesLost: number;
+    totalGamesWon: number;
+    totalGamesLost: number;
+    recentEvents: Map<string, PlayerProfile['recentEvents'][0]>;
+  }> = {};
 
   users.forEach((u) => {
     statsMap[u.id] = {
@@ -27,11 +30,7 @@ export function recalculatePlayerStats(events: EventItem[], users: PlayerProfile
   });
 
   events.forEach((event) => {
-    if (
-      event.status !== 'completed' &&
-      event.status !== 'in_progress' &&
-      event.status !== 'knockout_stage'
-    ) {
+    if (event.status !== 'completed' && event.status !== 'in_progress' && event.status !== 'knockout_stage') {
       return;
     }
 
@@ -40,12 +39,9 @@ export function recalculatePlayerStats(events: EventItem[], users: PlayerProfile
       teamsMap[t.id] = t;
     });
 
+    // Check matches
     event.matches.forEach((m) => {
-      if (
-        m.status !== 'completed' ||
-        typeof m.team1Score !== 'number' ||
-        typeof m.team2Score !== 'number'
-      ) {
+      if (m.status !== 'completed' || typeof m.team1Score !== 'number' || typeof m.team2Score !== 'number') {
         return;
       }
 
@@ -64,6 +60,7 @@ export function recalculatePlayerStats(events: EventItem[], users: PlayerProfile
         games2 = m.sets.reduce((sum, s) => sum + (s.team2Score || 0), 0);
       }
 
+      // Team 1 players
       team1Players.forEach((pId) => {
         if (!statsMap[pId]) return;
         statsMap[pId].eventsPlayed.add(event.id);
@@ -78,6 +75,7 @@ export function recalculatePlayerStats(events: EventItem[], users: PlayerProfile
         }
       });
 
+      // Team 2 players
       team2Players.forEach((pId) => {
         if (!statsMap[pId]) return;
         statsMap[pId].eventsPlayed.add(event.id);
@@ -93,16 +91,12 @@ export function recalculatePlayerStats(events: EventItem[], users: PlayerProfile
       });
     });
 
+    // Tag event result if completed
     if (event.status === 'completed') {
-      const finalMatch = event.matches.find(
-        (m) => m.knockoutStage === 'final' && m.status === 'completed'
-      );
+      const finalMatch = event.matches.find((m) => m.knockoutStage === 'final' && m.status === 'completed');
       if (finalMatch && finalMatch.winnerTeamId) {
         const champTeam = teamsMap[finalMatch.winnerTeamId];
-        const runnerTeam =
-          teamsMap[
-            finalMatch.team1Id === finalMatch.winnerTeamId ? finalMatch.team2Id : finalMatch.team1Id
-          ];
+        const runnerTeam = teamsMap[finalMatch.team1Id === finalMatch.winnerTeamId ? finalMatch.team2Id : finalMatch.team1Id];
 
         if (champTeam) {
           [champTeam.player1.id, champTeam.player2.id].forEach((pId) => {

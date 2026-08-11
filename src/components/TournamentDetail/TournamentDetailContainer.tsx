@@ -19,7 +19,8 @@ import {
   Crown,
   ShieldCheck,
   ArrowLeft,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 
 interface TournamentDetailContainerProps {
@@ -47,6 +48,7 @@ export const TournamentDetailContainer: React.FC<TournamentDetailContainerProps>
     generateEventGroupsAction,
     generateEventScheduleAction,
     confirmQualifiersAndKnockout,
+    deleteEvent,
   } = usePadel();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -54,6 +56,7 @@ export const TournamentDetailContainer: React.FC<TournamentDetailContainerProps>
 
   const isOwner = event.ownerId === currentUser.id;
   const isCoAdmin = event.coAdminIds.includes(currentUser.id);
+  const isAdmin = isOwner || isCoAdmin;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -66,9 +69,22 @@ export const TournamentDetailContainer: React.FC<TournamentDetailContainerProps>
           <ArrowLeft className="w-4 h-4" /> Back to All Events
         </button>
 
-        <span className="text-xs font-bold text-emerald-400 bg-emerald-950 border border-emerald-800/60 px-3 py-1 rounded-full uppercase tracking-wider">
-          {event.facilityName}
-        </span>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={async () => {
+                if (!window.confirm(`Delete "${event.name}"? This cannot be undone.`)) return;
+                if (await deleteEvent(event.id)) onBack();
+              }}
+              className="flex items-center gap-1.5 text-xs font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-2 rounded-xl transition-colors"
+            >
+              <Trash2 className="w-4 h-4" /> Delete event
+            </button>
+          )}
+          <span className="text-xs font-bold text-emerald-400 bg-emerald-950 border border-emerald-800/60 px-3 py-1 rounded-full uppercase tracking-wider">
+            {event.facilityName}
+          </span>
+        </div>
       </div>
 
       {/* Tabs Navigation Bar */}

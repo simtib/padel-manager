@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { usePadel } from '../context/PadelContext';
 import { EventFormat } from '../types';
 import { Trophy, Users, MapPin, Calendar, Clock, ShieldCheck, X, Check, Info, Star, Map, ExternalLink, Settings2, Plus, RefreshCw, LayoutGrid } from 'lucide-react';
@@ -17,12 +17,14 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [facilityId, setFacilityId] = useState(facilities[0]?.id || '');
-  const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>(
-    facilities[0]?.courts.map((c) => c.id) || []
-  );
-  const [date, setDate] = useState('2026-08-08');
+  const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([]);
+  const [date, setDate] = useState(() => {
+    const today = new Date();
+    const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60_000);
+    return localDate.toISOString().slice(0, 10);
+  });
   const [startTime, setStartTime] = useState('19:00');
-  const [maxPlayers, setMaxPlayers] = useState<number>(48);
+  const [maxPlayers, setMaxPlayers] = useState<number | null>(null);
   const [selectedCoAdminIds, setSelectedCoAdminIds] = useState<string[]>([]);
   const [showVenuesModal, setShowVenuesModal] = useState(false);
 
@@ -30,10 +32,9 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
 
   const handleFacilityChange = (id: string) => {
     setFacilityId(id);
-    const fac = facilities.find((f) => f.id === id);
-    if (fac) {
-      setSelectedCourtIds(fac.courts.map((c) => c.id));
-    }
+    // Court allocation is always an explicit choice, including after changing
+    // venue, so users never submit an unintended default allocation.
+    setSelectedCourtIds([]);
   };
 
   const toggleCourt = (courtId: string) => {
@@ -54,11 +55,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !date || (type === 'tournament' && maxPlayers === null)) return;
 
-    const eventId = createEvent({
+    const eventId = await createEvent({
       name,
       description,
       type,
@@ -67,7 +68,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
       courtIds: selectedCourtIds,
       date,
       startTime,
-      maxPlayers: type === 'normal_match' ? 4 : maxPlayers,
+      maxPlayers: type === 'normal_match' ? 4 : maxPlayers!,
       coAdminIds: selectedCoAdminIds,
       rules: {
         winPoints: 3,
@@ -83,8 +84,14 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl text-slate-200 my-8">
+      <div
+        className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+        onClick={onClose}
+      >
+        <div
+          className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl text-slate-200 my-8 max-h-[calc(100vh-2rem)] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 hover:bg-slate-800"
@@ -141,7 +148,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 onClick={() => {
                   setFormat('americano');
                   setType('tournament');
-                  if (maxPlayers < 8) setMaxPlayers(16);
+                  setMaxPlayers(null);
                 }}
                 className={`p-3.5 rounded-2xl border text-left transition-all relative ${
                   format === 'americano'
@@ -167,6 +174,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 onClick={() => {
                   setFormat('custom');
                   setType('tournament');
+                  setMaxPlayers(null);
                 }}
                 className={`p-3.5 rounded-2xl border text-left transition-all relative ${
                   format === 'custom'
@@ -246,7 +254,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                       .filter((f) => f.isFavorite)
                       .map((fac) => (
                         <option key={fac.id} value={fac.id}>
-                          ⭐ {fac.name} ({fac.city})
+                          â­ {fac.name} ({fac.city})
                         </option>
                       ))}
                     {/* Other Facilities */}
@@ -285,7 +293,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-emerald-500"
+                    className="date-input flex-1 bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-emerald-500 [color-scheme:dark]"
                   />
                   <input
                     type="time"
@@ -329,7 +337,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                   className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500 text-white rounded-xl p-2.5 text-xs outline-none"
                 />
                 <p className="text-[10px] text-slate-400">
-                  {selectedFacility.address}, {selectedFacility.city} • Saved to venue profile
+                  {selectedFacility.address}, {selectedFacility.city} â€¢ Saved to venue profile
                 </p>
               </div>
             )}
@@ -373,8 +381,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                   Player Capacity & Teams
                 </label>
-                <span className="text-xs font-bold text-emerald-400">
-                  {maxPlayers} Players ({maxPlayers / 2} Teams / {maxPlayers / 8} Groups)
+                <span className={`text-xs font-bold ${maxPlayers === null ? 'text-slate-500' : 'text-emerald-400'}`}>
+                  {maxPlayers === null
+                    ? 'No capacity selected'
+                    : `${maxPlayers} Players (${maxPlayers / 2} Teams / ${maxPlayers / 8} Groups)`}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2">
@@ -441,7 +451,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
             </button>
             <button
               type="submit"
-              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs py-3 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+              disabled={!name.trim() || !date || (type === 'tournament' && maxPlayers === null)}
+              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none text-slate-950 font-extrabold text-xs py-3 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4" /> Create & Launch Event
             </button>

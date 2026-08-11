@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { usePadel } from '../context/PadelContext';
 import { PlayerGroup } from '../types';
-import { Users, Plus, X, Share2, Link2, Check, UserPlus, Shield, UserCheck, UserX, AlertCircle, User } from 'lucide-react';
+import { Users, Plus, X, Share2, Link2, Check, UserPlus, Shield, UserCheck, UserX, AlertCircle, User, Trash2 } from 'lucide-react';
 import { ShareGroupModal } from './ShareGroupModal';
 import { GroupInviteModal } from './GroupInviteModal';
 
@@ -13,6 +13,7 @@ export const GroupsPage: React.FC = () => {
     allPlayers,
     currentUser,
     createPlayerGroupAction,
+    deletePlayerGroupAction,
     joinPlayerGroupAction,
     approveGroupJoinRequestAction,
     rejectGroupJoinRequestAction,
@@ -27,6 +28,10 @@ export const GroupsPage: React.FC = () => {
   const [shareGroup, setShareGroup] = useState<PlayerGroup | null>(null);
   const [previewInviteGroup, setPreviewInviteGroup] = useState<PlayerGroup | null>(null);
   const [isNewGroupCreated, setIsNewGroupCreated] = useState(false);
+  const playersById = useMemo(
+    () => new Map(allPlayers.map((player) => [player.id, player])),
+    [allPlayers]
+  );
 
   const toggleMember = (userId: string) => {
     if (selectedMemberIds.includes(userId)) {
@@ -36,10 +41,10 @@ export const GroupsPage: React.FC = () => {
     }
   };
 
-  const handleCreateGroup = (e: React.FormEvent) => {
+  const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupName.trim()) return;
-    const newGroup = createPlayerGroupAction(groupName.trim(), description.trim(), selectedMemberIds);
+    const newGroup = await createPlayerGroupAction(groupName.trim(), description.trim(), selectedMemberIds);
     setGroupName('');
     setDescription('');
     setSelectedMemberIds([]);
@@ -194,7 +199,7 @@ export const GroupsPage: React.FC = () => {
                           </div>
                           <div className="space-y-2">
                             {group.pendingRequestUserIds?.map((reqUserId) => {
-                              const reqPlayer = allPlayers.find((p) => p.id === reqUserId);
+                              const reqPlayer = playersById.get(reqUserId);
                               return (
                                 <div
                                   key={reqUserId}
@@ -239,7 +244,7 @@ export const GroupsPage: React.FC = () => {
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {group.memberIds.map((mId) => {
-                            const player = allPlayers.find((p) => p.id === mId);
+                            const player = playersById.get(mId);
                             return (
                               <div
                                 key={mId}
@@ -259,7 +264,7 @@ export const GroupsPage: React.FC = () => {
                     </div>
 
                     {/* Actions: Share Link or Join / View Details */}
-                    <div className="pt-4 border-t border-slate-800 grid grid-cols-2 gap-2">
+                    <div className={`pt-4 border-t border-slate-800 grid gap-2 ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
                       <button
                         onClick={() => setPreviewInviteGroup(group)}
                         className="bg-slate-950 hover:bg-slate-800 text-slate-200 font-bold text-xs py-2.5 px-3 rounded-xl border border-slate-800 transition-all flex items-center justify-center gap-1.5"
@@ -276,6 +281,21 @@ export const GroupsPage: React.FC = () => {
                       >
                         <Share2 className="w-3.5 h-3.5" /> Share Link
                       </button>
+
+                      {isAdmin && (
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Delete "${group.name}"? This removes the group for every member and cannot be undone.`)) return;
+                            if (await deletePlayerGroupAction(group.id)) {
+                              if (shareGroup?.id === group.id) setShareGroup(null);
+                              if (previewInviteGroup?.id === group.id) setPreviewInviteGroup(null);
+                            }
+                          }}
+                          className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs py-2.5 px-3 rounded-xl border border-rose-500/30 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -305,8 +325,8 @@ export const GroupsPage: React.FC = () => {
 
       {/* Create Group Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative shadow-2xl text-slate-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="create-group-title">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative shadow-2xl text-slate-200 mx-auto my-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <button
               onClick={() => setShowCreateModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
@@ -314,7 +334,7 @@ export const GroupsPage: React.FC = () => {
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="font-bold text-lg text-white mb-1">Create Player Group</h3>
+            <h3 id="create-group-title" className="font-bold text-lg text-white mb-1">Create Player Group</h3>
             <p className="text-xs text-slate-400 mb-4">
               Group friends together and generate a shareable invite link
             </p>

@@ -24,12 +24,12 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, currentUs
 
   const capacityPct = Math.min(100, Math.round((confirmedCount / event.maxPlayers) * 100));
 
-  const handleQuickJoinToggle = (e: React.MouseEvent) => {
+  const handleQuickJoinToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isParticipant) {
       leaveEvent(event.id);
     } else {
-      joinEvent(event.id);
+      await joinEvent(event.id);
     }
   };
 

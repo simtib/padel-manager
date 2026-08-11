@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿'use client';
+
+import React, { createContext, useContext, useState } from 'react';
 import {
   User,
   PlayerProfile,
@@ -14,6 +16,7 @@ import {
   Participant,
   SetScore
 } from '../types';
+import { createClient } from '../lib/supabase/client';
 import {
   SEED_FACILITIES,
   SEED_PLAYERS,
@@ -29,328 +32,92 @@ import {
   identifyQualifiers,
   recalculatePlayerStats
 } from '../utils/engine';
+import type { PadelContextValue } from './PadelContext.types';
+import { createNotificationId, isValidUuid } from './contextHelpers';
+import { clearPadelPersistence, usePadelPersistence } from './usePadelPersistence';
+import { ensureProfile, toPlayerProfile, type ProfileRow } from './authProfile';
+import { useSupabaseAuthSync } from './useSupabaseAuthSync';
 
-interface PadelContextType {
-  currentUser: PlayerProfile;
-  allPlayers: PlayerProfile[];
-  facilities: Facility[];
-  events: EventItem[];
-  playerGroups: PlayerGroup[];
-  notifications: NotificationItem[];
-  partnerRequests: PartnerRequest[];
-  signUpAction: (data: { firstName: string; lastName: string; email: string; password: string }) => Promise<{ success: boolean; error?: string }>;
-  loginAction: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logoutAction: () => Promise<void>;
-  forgotPasswordAction: (email: string) => Promise<{ success: boolean; error?: string }>;
-  resetPasswordAction: (password: string) => Promise<{ success: boolean; error?: string }>;
-  isAuthenticated: boolean;
-  switchUser: (userId: string) => void;
-  loginUser: (email: string) => boolean;
-  registerUser: (firstName: string, lastName: string, email: string, mobile?: string) => void;
-  createEvent: (newEventData: Partial<EventItem>) => string;
-  deleteEvent: (eventId: string) => void;
-  joinEvent: (eventId: string, preferredPartnerId?: string) => { success: boolean; status?: 'confirmed' | 'waiting_list' };
-  leaveEvent: (eventId: string, targetUserId?: string) => void;
-  removeParticipant: (eventId: string, targetUserId: string) => void;
-  addRegisteredPlayerToEvent: (eventId: string, userId: string) => void;
-  addGuestPlayer: (eventId: string, guestName: string) => void;
-  removeGuestPlayer: (eventId: string, guestId: string) => void;
-  sendPartnerRequest: (eventId: string, toUserId: string) => void;
-  respondToPartnerRequest: (requestId: string, accept: boolean) => void;
-  generateTeams: (eventId: string) => void;
-  updateTeams: (eventId: string, teams: Team[]) => void;
-  generateEventGroupsAction: (eventId: string) => void;
-  updateGroups: (eventId: string, groups: TournamentGroup[]) => void;
-  generateEventScheduleAction: (eventId: string) => void;
-  recordMatchScoreAction: (
-    eventId: string,
-    matchId: string,
-    team1Score: number,
-    team2Score: number,
-    sets?: SetScore[]
-  ) => void;
-  confirmQualifiersAndKnockout: (eventId: string) => void;
-  addCoAdmin: (eventId: string, userId: string) => void;
-  removeCoAdmin: (eventId: string, userId: string) => void;
-  createPlayerGroupAction: (name: string, description: string, memberIds: string[]) => PlayerGroup;
-  joinPlayerGroupAction: (groupId: string, targetUserId?: string, initialGroupData?: Partial<PlayerGroup>) => void;
-  requestJoinPlayerGroupAction: (groupId: string, targetUserId?: string, initialGroupData?: Partial<PlayerGroup>) => void;
-  approveGroupJoinRequestAction: (groupId: string, requestingUserId: string) => void;
-  rejectGroupJoinRequestAction: (groupId: string, requestingUserId: string) => void;
-  inviteGroupToEventAction: (eventId: string, groupId: string) => void;
-  saveFacility: (data: Partial<Facility> & { name: string; address: string; city: string }) => Facility;
-  toggleFavoriteFacility: (facilityId: string) => void;
-  deleteFacility: (facilityId: string) => void;
-  resetDemoData: () => void;
-  updateProfile: (data: Partial<PlayerProfile>) => void;
-}
+// The app's seed/localStorage data uses human-readable string IDs (e.g. 'fac_1',
+// 'c1'), but the Supabase schema stores facilities/courts/events ids as UUIDs.
+// This guard prevents pushing those client string IDs into UUID columns, which
+// would fail with an invalid-UUID / foreign-key violation.
+const PadelContext = createContext<PadelContextValue | null>(null);
 
-const STORAGE_KEY = 'padel_manager_v1_state';
+const SEED_PARTNER_REQUESTS: PartnerRequest[] = [
+  {
+    id: 'req_seed_1',
+    eventId: 'evt_abudhabi_cup_2026',
+    fromUserId: 'usr_john',
+    fromUserName: 'John Smith',
+    toUserId: 'usr_ahmed',
+    toUserName: 'Ahmed Al Mansoori',
+    status: 'accepted',
+    createdAt: '2026-08-06T10:05:00Z',
+  },
+];
 
-const PadelContext = createContext<PadelContextType | null>(null);
+const SEED_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 'notif_1',
+    userId: 'usr_simone',
+    title: 'Dubai Championship Ready',
+    message: 'Knockout Quarter-Final matches are ready to be played at Dubai Padel Club.',
+    date: '2026-08-07T08:00:00Z',
+    read: false,
+    eventId: 'evt_dubai_championship_2026',
+  },
+  {
+    id: 'notif_2',
+    userId: 'usr_marco',
+    title: 'Partner Confirmed',
+    message: 'Simone Rossi accepted your partner request for Dubai Night Padel Championship.',
+    date: '2026-08-06T12:00:00Z',
+    read: true,
+    eventId: 'evt_dubai_championship_2026',
+  },
+];
 
+// All state is initialized from seed data so the server render and the
+// first client render match exactly. Persisted localStorage state is only
+// applied AFTER mount (see hydrate effect below) to avoid hydration mismatches.
 export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>(() => {
-    if (typeof window === 'undefined') return SEED_PLAYERS;
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_players`);
-      return saved ? JSON.parse(saved) : SEED_PLAYERS;
-    } catch {
-      return SEED_PLAYERS;
-    }
-  });
-
-  const [currentUser, setCurrentUser] = useState<PlayerProfile>(() => {
-    if (typeof window === 'undefined') return SEED_PLAYERS[0];
-    try {
-      const savedUserId = localStorage.getItem(`${STORAGE_KEY}_current_user`);
-      const found = allPlayers.find((p) => p.id === savedUserId);
-      return found || allPlayers[0] || SEED_PLAYERS[0];
-    } catch {
-      return SEED_PLAYERS[0];
-    }
-  });
-
+  const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>(SEED_PLAYERS);
+  const [currentUser, setCurrentUser] = useState<PlayerProfile>(SEED_PLAYERS[0]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [facilities, setFacilities] = useState<Facility[]>(SEED_FACILITIES);
+  const [events, setEvents] = useState<EventItem[]>(SEED_EVENTS);
+  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>(SEED_GROUPS);
+  const [partnerRequests, setPartnerRequests] = useState<PartnerRequest[]>(SEED_PARTNER_REQUESTS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(SEED_NOTIFICATIONS);
 
-  const [facilities, setFacilities] = useState<Facility[]>(() => {
-    if (typeof window === 'undefined') return SEED_FACILITIES;
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_facilities`);
-      return saved ? JSON.parse(saved) : SEED_FACILITIES;
-    } catch {
-      return SEED_FACILITIES;
-    }
+  usePadelPersistence({
+    allPlayers, setAllPlayers, currentUser, setCurrentUser, facilities, setFacilities,
+    events, setEvents, playerGroups, setPlayerGroups, partnerRequests, setPartnerRequests,
   });
+  useSupabaseAuthSync({ setIsAuthenticated, setCurrentUser, setAllPlayers });
 
-  const [events, setEvents] = useState<EventItem[]>(() => {
-    if (typeof window === 'undefined') return SEED_EVENTS;
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_events`);
-      return saved ? JSON.parse(saved) : SEED_EVENTS;
-    } catch {
-      return SEED_EVENTS;
-    }
-  });
-
-  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>(() => {
-    if (typeof window === 'undefined') return SEED_GROUPS;
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_groups`);
-      return saved ? JSON.parse(saved) : SEED_GROUPS;
-    } catch {
-      return SEED_GROUPS;
-    }
-  });
-
-  const [partnerRequests, setPartnerRequests] = useState<PartnerRequest[]>(() => {
-    if (typeof window === 'undefined') return [
-      {
-        id: 'req_seed_1',
-        eventId: 'evt_abudhabi_cup_2026',
-        fromUserId: 'usr_john',
-        fromUserName: 'John Smith',
-        toUserId: 'usr_ahmed',
-        toUserName: 'Ahmed Al Mansoori',
-        status: 'accepted',
-        createdAt: '2026-08-06T10:05:00Z',
-      },
-    ];
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_requests`);
-      return saved ? JSON.parse(saved) : [
-        {
-          id: 'req_seed_1',
-          eventId: 'evt_abudhabi_cup_2026',
-          fromUserId: 'usr_john',
-          fromUserName: 'John Smith',
-          toUserId: 'usr_ahmed',
-          toUserName: 'Ahmed Al Mansoori',
-          status: 'accepted',
-          createdAt: '2026-08-06T10:05:00Z',
-        },
-      ];
-    } catch {
-      return [];
-    }
-  });
-
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'notif_1',
-      userId: 'usr_simone',
-      title: 'Dubai Championship Ready',
-      message: 'Knockout Quarter-Final matches are ready to be played at Dubai Padel Club.',
-      date: '2026-08-07T08:00:00Z',
+  const reportOperationError = (title: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error || 'Unexpected error');
+    setNotifications((previous) => [{
+      id: createNotificationId('error'),
+      userId: currentUser.id,
+      title,
+      message,
+      date: new Date().toISOString(),
       read: false,
-      eventId: 'evt_dubai_championship_2026',
-    },
-    {
-      id: 'notif_2',
-      userId: 'usr_marco',
-      title: 'Partner Confirmed',
-      message: 'Simone Rossi accepted your partner request for Dubai Night Padel Championship.',
-      date: '2026-08-06T12:00:00Z',
-      read: true,
-      eventId: 'evt_dubai_championship_2026',
-    },
-  ]);
+    }, ...previous]);
+  };
 
-  // Persist state
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(`${STORAGE_KEY}_players`, JSON.stringify(allPlayers));
-  }, [allPlayers]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(`${STORAGE_KEY}_facilities`, JSON.stringify(facilities));
-  }, [facilities]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(`${STORAGE_KEY}_events`, JSON.stringify(events));
-  }, [events]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(`${STORAGE_KEY}_groups`, JSON.stringify(playerGroups));
-  }, [playerGroups]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(`${STORAGE_KEY}_requests`, JSON.stringify(partnerRequests));
-  }, [partnerRequests]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(`${STORAGE_KEY}_current_user`, currentUser.id);
-  }, [currentUser]);
-
-type ProfileRow = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  display_name: string;
-  email: string;
-  phone?: string | null;
-  avatar_url?: string | null;
-  created_at?: string;
-};
-
-// Supabase Auth Listener & State Sync
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let unsubscribe: (() => void) | undefined;
-
-    const initAuth = async () => {
-      try {
-        const { createClient } = await import('../lib/supabase/client');
-        const supabase = createClient();
-
-        // 1. Fetch current active session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setIsAuthenticated(true);
-          // Fetch profile from public.profiles
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          const profile = data as ProfileRow | null;
-
-          if (profile) {
-            const playerProfile: PlayerProfile = {
-              id: profile.id,
-              firstName: profile.first_name || session.user.user_metadata?.first_name || 'Player',
-              lastName: profile.last_name || session.user.user_metadata?.last_name || '',
-              displayName: profile.display_name || session.user.user_metadata?.display_name || profile.email,
-              email: profile.email || session.user.email || '',
-              mobileNumber: profile.phone || '',
-              avatarUrl: profile.avatar_url || `https://i.pravatar.cc/150?u=${profile.email}`,
-              createdAt: profile.created_at || new Date().toISOString(),
-              eventsPlayed: 0,
-              matchesPlayed: 0,
-              matchesWon: 0,
-              matchesLost: 0,
-              winRate: 0,
-              totalGamesWon: 0,
-              totalGamesLost: 0,
-              recentEvents: [],
-            };
-            setCurrentUser(playerProfile);
-            setAllPlayers((prev) => {
-              if (prev.some((p) => p.id === playerProfile.id)) return prev;
-              return [playerProfile, ...prev];
-            });
-          }
-        } else {
-          setIsAuthenticated(false);
-        }
-
-        // 2. Subscribe to Auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_OUT' || !session?.user) {
-            setIsAuthenticated(false);
-            // Revert back or clear auth state
-          } else if (session?.user) {
-            setIsAuthenticated(true);
-            const { data } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-
-            const profile = data as ProfileRow | null;
-
-            if (profile) {
-              const playerProfile: PlayerProfile = {
-                id: profile.id,
-                firstName: profile.first_name || session.user.user_metadata?.first_name || 'Player',
-                lastName: profile.last_name || session.user.user_metadata?.last_name || '',
-                displayName: profile.display_name || session.user.user_metadata?.display_name || profile.email,
-                email: profile.email || session.user.email || '',
-                mobileNumber: profile.phone || '',
-                avatarUrl: profile.avatar_url || `https://i.pravatar.cc/150?u=${profile.email}`,
-                createdAt: profile.created_at || new Date().toISOString(),
-                eventsPlayed: 0,
-                matchesPlayed: 0,
-                matchesWon: 0,
-                matchesLost: 0,
-                winRate: 0,
-                totalGamesWon: 0,
-                totalGamesLost: 0,
-                recentEvents: [],
-              };
-              setCurrentUser(playerProfile);
-              setAllPlayers((prev) => {
-                if (prev.some((p) => p.id === playerProfile.id)) return prev;
-                return [playerProfile, ...prev];
-              });
-            }
-          }
-        });
-
-        unsubscribe = () => subscription.unsubscribe();
-      } catch (err) {
-        console.error('Error initializing Supabase Auth:', err);
-      }
-    };
-
-    initAuth();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
+  const clearNotifications = () => {
+    setNotifications((previous) => previous.filter(
+      (notification) => notification.userId !== currentUser.id
+    ));
+  };
 
   // Supabase Auth Action Implementations
   const signUpAction = async (data: { firstName: string; lastName: string; email: string; password: string }) => {
     try {
-      const { createClient } = await import('../lib/supabase/client');
       const supabase = createClient();
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
@@ -371,6 +138,7 @@ type ProfileRow = {
 
       // If session is present immediately (e.g. email confirmation disabled), handle profile
       if (authData.session && authData.user) {
+        await ensureProfile(supabase, authData.user);
         const newPlayer: PlayerProfile = {
           id: authData.user.id,
           firstName: data.firstName,
@@ -395,14 +163,13 @@ type ProfileRow = {
 
       return { success: true };
     } catch (err: any) {
-      console.error('Supabase signup exception:', err);
+      console.error('Supabase signup exception:', err?.name || 'unknown_error', err?.message || 'no message');
       return { success: false, error: err.message || 'Failed to create account' };
     }
   };
 
   const loginAction = async (email: string, password: string) => {
     try {
-      const { createClient } = await import('../lib/supabase/client');
       const supabase = createClient();
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -415,6 +182,7 @@ type ProfileRow = {
       }
 
       if (authData.user) {
+        await ensureProfile(supabase, authData.user);
         const { data } = await supabase
           .from('profiles')
           .select('*')
@@ -423,42 +191,7 @@ type ProfileRow = {
 
         const profile = data as ProfileRow | null;
 
-        const newPlayer: PlayerProfile = profile
-          ? {
-              id: profile.id,
-              firstName: profile.first_name || authData.user.user_metadata?.first_name || 'Player',
-              lastName: profile.last_name || authData.user.user_metadata?.last_name || '',
-              displayName: profile.display_name || authData.user.user_metadata?.display_name || email,
-              email: profile.email || email,
-              mobileNumber: profile.phone || '',
-              avatarUrl: profile.avatar_url || `https://i.pravatar.cc/150?u=${email}`,
-              createdAt: profile.created_at || new Date().toISOString(),
-              eventsPlayed: 0,
-              matchesPlayed: 0,
-              matchesWon: 0,
-              matchesLost: 0,
-              winRate: 0,
-              totalGamesWon: 0,
-              totalGamesLost: 0,
-              recentEvents: [],
-            }
-          : {
-              id: authData.user.id,
-              firstName: authData.user.user_metadata?.first_name || 'Player',
-              lastName: authData.user.user_metadata?.last_name || '',
-              displayName: authData.user.user_metadata?.display_name || email,
-              email,
-              avatarUrl: `https://i.pravatar.cc/150?u=${email}`,
-              createdAt: new Date().toISOString(),
-              eventsPlayed: 0,
-              matchesPlayed: 0,
-              matchesWon: 0,
-              matchesLost: 0,
-              winRate: 0,
-              totalGamesWon: 0,
-              totalGamesLost: 0,
-              recentEvents: [],
-            };
+        const newPlayer = toPlayerProfile(profile, authData.user);
 
         setAllPlayers((prev) => {
           if (prev.some((p) => p.id === newPlayer.id)) return prev;
@@ -476,11 +209,10 @@ type ProfileRow = {
 
   const logoutAction = async () => {
     try {
-      const { createClient } = await import('../lib/supabase/client');
       const supabase = createClient();
       await supabase.auth.signOut();
       if (typeof window !== 'undefined') {
-        localStorage.removeItem(`${STORAGE_KEY}_current_user`);
+        localStorage.removeItem('padel_manager_v1_state_current_user');
       }
     } catch (err) {
       console.error('Logout error:', err);
@@ -489,7 +221,6 @@ type ProfileRow = {
 
   const forgotPasswordAction = async (email: string) => {
     try {
-      const { createClient } = await import('../lib/supabase/client');
       const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
@@ -503,7 +234,6 @@ type ProfileRow = {
 
   const resetPasswordAction = async (password: string) => {
     try {
-      const { createClient } = await import('../lib/supabase/client');
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
       if (error) return { success: false, error: error.message };
@@ -562,8 +292,51 @@ type ProfileRow = {
     });
   };
 
-  const createEvent = (newEventData: Partial<EventItem>): string => {
-    const eventId = `evt_${Date.now()}`;
+  const createEvent = async (newEventData: Partial<EventItem>): Promise<string> => {
+    let eventId = `evt_${Date.now()}`;
+    let supabaseError: string | undefined;
+
+    try {
+      const supabase = createClient();
+      const sb = supabase as any;
+
+      const { data: { session } } = await sb.auth.getSession();
+      const authUid = session?.user?.id;
+
+      if (authUid) {
+        // Restored sessions may belong to accounts created before the profile
+        // trigger existed. Repair the FK target before inserting the event.
+        await ensureProfile(supabase, session.user);
+        const facility = facilities.find((f) => f.id === newEventData.facilityId) || facilities[0];
+
+        const courtIds = (newEventData.courtIds || []).filter(isValidUuid);
+        const coAdminIds = (newEventData.coAdminIds || []).filter(isValidUuid);
+        const { data: insertedEventId, error: eventError } = await sb.rpc('create_event', {
+          event_name: newEventData.name || 'New Padel Tournament',
+          event_description: newEventData.description || '',
+          event_type_value: newEventData.type || 'tournament',
+          event_date_value: newEventData.date || new Date().toISOString().split('T')[0],
+          start_time_value: newEventData.startTime || '18:00',
+          facility_id_value: facility && isValidUuid(facility.id) ? facility.id : null,
+          visibility_value: newEventData.visibility || 'private',
+          max_players_value: newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16),
+          court_ids: courtIds,
+          co_admin_ids: coAdminIds,
+          rules_value: newEventData.rules || {},
+        });
+
+        if (eventError) {
+          reportOperationError('Could not create event', eventError.message);
+          supabaseError = eventError.message;
+        } else if (insertedEventId) {
+          eventId = insertedEventId;
+        }
+      }
+    } catch (err: any) {
+      console.error('Supabase event exception:', err);
+      supabaseError = err.message;
+    }
+
     const facility = facilities.find((f) => f.id === newEventData.facilityId) || facilities[0];
 
     const newEvent: EventItem = {
@@ -574,14 +347,14 @@ type ProfileRow = {
       format: newEventData.format || (newEventData.type === 'normal_match' ? 'standard_3_sets' : 'custom'),
       date: newEventData.date || new Date().toISOString().split('T')[0],
       startTime: newEventData.startTime || '18:00',
-      facilityId: facility.id,
-      facilityName: facility.name,
+      facilityId: facility?.id || '',
+      facilityName: facility?.name || '',
       courtIds: newEventData.courtIds || [],
       ownerId: currentUser.id,
       ownerName: currentUser.displayName,
       coAdminIds: newEventData.coAdminIds || [],
-      maxPlayers: newEventData.maxPlayers || 16,
-      maxTeams: (newEventData.maxPlayers || 16) / 2,
+      maxPlayers: newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16),
+      maxTeams: (newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16)) / 2,
       visibility: newEventData.visibility || 'private',
       status: 'open',
       participants: [
@@ -610,22 +383,65 @@ type ProfileRow = {
     return eventId;
   };
 
-  const deleteEvent = (eventId: string) => {
+  const deleteEvent = async (eventId: string): Promise<boolean> => {
+    if (isValidUuid(eventId)) {
+      const sb = createClient() as any;
+      const { data, error } = await sb.rpc('delete_event', { target_event_id: eventId });
+      if (error || data !== true) {
+        reportOperationError('Could not delete event', error?.message || 'Event was not deleted');
+        return false;
+      }
+    }
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    return true;
   };
 
-  const joinEvent = (eventId: string, preferredPartnerId?: string) => {
+  const joinEvent = async (eventId: string, preferredPartnerId?: string): Promise<{ success: boolean; status?: 'confirmed' | 'waiting_list' }> => {
     let resultStatus: 'confirmed' | 'waiting_list' = 'confirmed';
+    let usedServerStatus = false;
+    let supabaseError: string | undefined;
+
+    try {
+      const supabase = createClient();
+      const sb = supabase as any;
+
+      const { data: { session } } = await sb.auth.getSession();
+      const authUid = session?.user?.id;
+
+      if (authUid && isValidUuid(eventId)) {
+        const event = events.find((e) => e.id === eventId);
+        if (!event) {
+          return { success: false, status: resultStatus };
+        }
+
+        // Capacity and duplicate checks must happen atomically in PostgreSQL;
+        // a client-side count allows concurrent users to overbook an event.
+        const { data: registrationStatus, error: participantError } = await sb.rpc(
+          'register_for_event',
+          { target_event_id: eventId }
+        );
+
+        if (participantError) {
+          reportOperationError('Could not join event', participantError.message);
+          supabaseError = participantError.message;
+        } else if (registrationStatus === 'confirmed' || registrationStatus === 'waiting_list') {
+          resultStatus = registrationStatus;
+          usedServerStatus = true;
+        }
+      }
+    } catch (err: any) {
+      console.error('Supabase join event exception:', err);
+      supabaseError = err.message;
+    }
+
     setEvents((prev) =>
       prev.map((event) => {
         if (event.id !== eventId) return event;
 
-        // Check if already registered
         const exists = event.participants.some((p) => p.id === currentUser.id);
         if (exists) {
           const currentP = event.participants.find((p) => p.id === currentUser.id);
           if (currentP) resultStatus = currentP.status;
-          // Update preferred partner
           return {
             ...event,
             participants: event.participants.map((p) =>
@@ -635,8 +451,10 @@ type ProfileRow = {
         }
 
         const confirmedCount = event.participants.filter((p) => p.status === 'confirmed').length;
-        const isFull = confirmedCount >= event.maxPlayers;
-        resultStatus = isFull ? 'waiting_list' : 'confirmed';
+        const isFull = usedServerStatus
+          ? resultStatus === 'waiting_list'
+          : confirmedCount >= event.maxPlayers;
+        if (!usedServerStatus) resultStatus = isFull ? 'waiting_list' : 'confirmed';
 
         const newParticipant: Participant = {
           id: currentUser.id,
@@ -708,12 +526,55 @@ type ProfileRow = {
   };
 
   const removeParticipant = (eventId: string, targetUserId: string) => {
+    if (isValidUuid(eventId) && isValidUuid(targetUserId)) {
+      const sb = createClient() as any;
+      void sb.rpc('remove_event_participant', {
+        target_event_id: eventId,
+        target_user_id: targetUserId,
+      }).then(({ error }: { error: { message: string } | null }) => {
+        if (error) reportOperationError('Could not remove participant', error.message);
+      });
+    }
     // Clear partner requests involving this participant for this event
     setPartnerRequests((prev) =>
       prev.filter(
         (r) => !(r.eventId === eventId && (r.fromUserId === targetUserId || r.toUserId === targetUserId))
       )
     );
+
+    // Notifications are deliberately created outside the state updater. React
+    // may invoke updater callbacks more than once in development Strict Mode.
+    const eventSnapshot = events.find((event) => event.id === eventId);
+    const leavingSnapshot = eventSnapshot?.participants.find((participant) => participant.id === targetUserId);
+    if (eventSnapshot && leavingSnapshot) {
+      if (!leavingSnapshot.isGuest) {
+        setNotifications((previous) => [{
+          id: createNotificationId('notif_wdr'),
+          userId: targetUserId,
+          title: 'Registration Withdrawn',
+          message: `You have successfully withdrawn your registration from "${eventSnapshot.name}".`,
+          date: new Date().toISOString(),
+          read: false,
+          eventId,
+        }, ...previous]);
+      }
+      if (leavingSnapshot.status === 'confirmed') {
+        const promoted = eventSnapshot.participants.find(
+          (participant) => participant.id !== targetUserId && participant.status === 'waiting_list'
+        );
+        if (promoted) {
+          setNotifications((previous) => [{
+            id: createNotificationId('notif_promoted'),
+            userId: promoted.id,
+            title: 'Promoted from Waiting List!',
+            message: `A spot opened up in ${eventSnapshot.name}! You are now confirmed.`,
+            date: new Date().toISOString(),
+            read: false,
+            eventId,
+          }, ...previous]);
+        }
+      }
+    }
 
     setEvents((prev) =>
       prev.map((event) => {
@@ -745,19 +606,6 @@ type ProfileRow = {
               return p;
             });
 
-            // Send notification to promoted user
-            setNotifications((n) => [
-              {
-                id: `notif_${Date.now()}`,
-                userId: firstWaiting.id,
-                title: 'Promoted from Waiting List!',
-                message: `A spot opened up in ${event.name}! You are now confirmed.`,
-                date: new Date().toISOString(),
-                read: false,
-                eventId: event.id,
-              },
-              ...n,
-            ]);
           }
         } else if (leaving.status === 'waiting_list' && leaving.waitingListPosition) {
           const pos = leaving.waitingListPosition;
@@ -818,22 +666,6 @@ type ProfileRow = {
               },
             ];
           }
-        }
-
-        // Notification to user withdrawing
-        if (!leaving.isGuest) {
-          setNotifications((n) => [
-            {
-              id: `notif_wdr_${Date.now()}`,
-              userId: targetUserId,
-              title: 'Registration Withdrawn',
-              message: `You have successfully withdrawn your registration from "${event.name}".`,
-              date: new Date().toISOString(),
-              read: false,
-              eventId: event.id,
-            },
-            ...n,
-          ]);
         }
 
         const newConfirmedCount = updatedParticipants.filter((p) => p.status === 'confirmed').length;
@@ -983,9 +815,9 @@ type ProfileRow = {
     // Send notification to recipient
     setNotifications((n) => [
       {
-        id: `notif_${Date.now()}`,
+        id: createNotificationId(),
         userId: toUserId,
-        title: 'Partner Request Received 🎾',
+        title: 'Partner Request Received ðŸŽ¾',
         message: `${currentUser.displayName} requested to be your partner for the tournament!`,
         date: new Date().toISOString(),
         read: false,
@@ -996,25 +828,22 @@ type ProfileRow = {
   };
 
   const respondToPartnerRequest = (requestId: string, accept: boolean) => {
+    const request = partnerRequests.find((item) => item.id === requestId);
+    if (request) {
+      setNotifications((previous) => [{
+        id: createNotificationId(),
+        userId: request.fromUserId,
+        title: accept ? 'Partner Request Accepted!' : 'Partner Request Declined',
+        message: `${currentUser.displayName} ${accept ? 'accepted' : 'declined'} your partner request.`,
+        date: new Date().toISOString(),
+        read: false,
+        eventId: request.eventId,
+      }, ...previous]);
+    }
     setPartnerRequests((prev) =>
       prev.map((r) => {
         if (r.id !== requestId) return r;
         const newStatus = accept ? 'accepted' : 'declined';
-
-        // Notify sender
-        setNotifications((n) => [
-          {
-            id: `notif_${Date.now()}`,
-            userId: r.fromUserId,
-            title: accept ? 'Partner Request Accepted!' : 'Partner Request Declined',
-            message: `${currentUser.displayName} ${accept ? 'accepted' : 'declined'} your partner request.`,
-            date: new Date().toISOString(),
-            read: false,
-            eventId: r.eventId,
-          },
-          ...n,
-        ]);
-
         return { ...r, status: newStatus };
       })
     );
@@ -1107,6 +936,18 @@ type ProfileRow = {
     team2Score: number,
     sets?: SetScore[]
   ) => {
+    if (isValidUuid(eventId) && isValidUuid(matchId)) {
+      const sb = createClient() as any;
+      void sb.rpc('record_match_score', {
+        target_event_id: eventId,
+        target_match_id: matchId,
+        score_a: team1Score,
+        score_b: team2Score,
+        set_scores: sets || [],
+      }).then(({ error }: { error: { message: string } | null }) => {
+        if (error) reportOperationError('Could not save match score', error.message);
+      });
+    }
     setEvents((prev) =>
       prev.map((event) => {
         if (event.id !== eventId) return event;
@@ -1246,8 +1087,8 @@ type ProfileRow = {
     );
   };
 
-  const createPlayerGroupAction = (name: string, description: string, memberIds: string[]): PlayerGroup => {
-    const newGroup: PlayerGroup = {
+  const createPlayerGroupAction = async (name: string, description: string, memberIds: string[]): Promise<PlayerGroup> => {
+    let newGroup: PlayerGroup = {
       id: `grp_${Date.now()}`,
       name,
       description,
@@ -1256,16 +1097,109 @@ type ProfileRow = {
       createdAt: new Date().toISOString(),
     };
 
+    try {
+      const supabase = createClient();
+      const sb = supabase as any;
+
+      const { data: { session } } = await sb.auth.getSession();
+      const authUid = session?.user?.id;
+
+      if (authUid) {
+        await ensureProfile(supabase, session.user);
+        const persistedMemberIds = memberIds.filter(isValidUuid);
+        const { data: insertedGroupId, error: groupError } = await sb.rpc('create_player_group', {
+          group_name: name,
+          group_description: description || '',
+          member_ids: persistedMemberIds,
+        });
+
+        if (groupError) {
+          reportOperationError('Could not create player group', groupError.message);
+        } else if (insertedGroupId) {
+          newGroup = {
+            id: insertedGroupId,
+            name,
+            description,
+            ownerId: authUid,
+            memberIds: Array.from(new Set([authUid, ...memberIds])),
+            createdAt: new Date().toISOString(),
+          };
+        }
+      }
+    } catch (err: any) {
+      console.error('Supabase group exception:', err);
+    }
+
     setPlayerGroups((prev) => [newGroup, ...prev]);
     return newGroup;
   };
 
-  const joinPlayerGroupAction = (
+  const deletePlayerGroupAction = async (groupId: string): Promise<boolean> => {
+    if (isValidUuid(groupId)) {
+      const sb = createClient() as any;
+      const { data, error } = await sb.rpc('delete_player_group', { target_group_id: groupId });
+      if (error || data !== true) {
+        reportOperationError('Could not delete player group', error?.message || 'Group was not deleted');
+        return false;
+      }
+    }
+    setPlayerGroups((previous) => previous.filter((group) => group.id !== groupId));
+    return true;
+  };
+
+  const joinPlayerGroupAction = async (
     groupId: string,
     targetUserId?: string,
     initialGroupData?: Partial<PlayerGroup>
-  ) => {
+  ): Promise<void> => {
     const uid = targetUserId || currentUser.id;
+
+    try {
+      const supabase = createClient();
+      const sb = supabase as any;
+
+      const { data: { session } } = await sb.auth.getSession();
+      const authUid = session?.user?.id;
+
+      if (authUid) {
+        const existingGroup = playerGroups.find((g) => g.id === groupId);
+        if (existingGroup) {
+          if (isValidUuid(groupId) && isValidUuid(uid)) {
+            const { error } = await sb.from('player_group_members').upsert({
+              group_id: groupId,
+              user_id: uid,
+              status: 'active',
+            }, { onConflict: ['group_id', 'user_id'] });
+            if (error) console.error('Supabase upsert player_group_members failed:', error);
+          }
+        } else {
+          const { data: insertedGroup, error: groupError } = await sb
+            .from('player_groups')
+            .insert({
+              owner_id: initialGroupData?.ownerId || 'usr_organizer',
+              name: initialGroupData?.name || 'Shared Padel Group',
+              description: initialGroupData?.description || null,
+            })
+            .select()
+            .single();
+
+          if (groupError) {
+            console.error('Supabase insert player_group failed:', groupError);
+          } else if (insertedGroup) {
+            if (isValidUuid(uid)) {
+              await sb.from('player_group_members').insert({
+                group_id: insertedGroup.id,
+                user_id: uid,
+                status: 'active',
+              });
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('Supabase join group exception:', err);
+    }
+
     setPlayerGroups((prev) => {
       const exists = prev.some((g) => g.id === groupId);
       if (exists) {
@@ -1295,7 +1229,7 @@ type ProfileRow = {
   const addNotification = (userId: string, title: string, message: string) => {
     setNotifications((prev) => [
       {
-        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: createNotificationId(),
         userId,
         title,
         message,
@@ -1434,51 +1368,110 @@ type ProfileRow = {
     );
   };
 
-  const saveFacility = (data: Partial<Facility> & { name: string; address: string; city: string }): Facility => {
+  const saveFacility = async (data: Partial<Facility> & { name: string; address: string; city: string }): Promise<Facility> => {
     let resultFacility: Facility | null = null;
-    setFacilities((prev) => {
-      const existingIdx = prev.findIndex((f) => f.id === data.id);
-      if (existingIdx >= 0) {
-        const existing = prev[existingIdx];
-        resultFacility = {
-          ...existing,
-          ...data,
-        };
-        const updated = [...prev];
-        updated[existingIdx] = resultFacility;
-        return updated;
-      } else {
-        const newId = `fac_${Date.now()}`;
-        const defaultCourts = data.courts && data.courts.length > 0 ? data.courts : [
-          { id: `c_${Date.now()}_1`, name: 'Court 1' },
-          { id: `c_${Date.now()}_2`, name: 'Court 2' },
-          { id: `c_${Date.now()}_3`, name: 'Court 3' },
-          { id: `c_${Date.now()}_4`, name: 'Court 4' },
-        ];
-        resultFacility = {
-          id: newId,
+    let supabaseError: string | undefined;
+
+    try {
+      const supabase = createClient();
+      const sb = supabase as any;
+
+      const { data: { session } } = await sb.auth.getSession();
+      const authUid = session?.user?.id;
+
+      if (authUid) {
+        const facilityInsert: any = {
           name: data.name,
           address: data.address,
           city: data.city || 'Dubai',
           country: data.country || 'United Arab Emirates',
-          googleMapsUrl: data.googleMapsUrl || '',
-          isFavorite: data.isFavorite ?? true,
-          courts: defaultCourts,
+          google_maps_url: data.googleMapsUrl || null,
+          created_by: authUid,
         };
+
+        const { data: insertedFacility, error: facilityError } = await sb
+          .from('facilities')
+          .insert(facilityInsert)
+          .select()
+          .single();
+
+        if (facilityError) {
+          console.error('Supabase insert facility failed:', facilityError);
+          supabaseError = facilityError.message;
+        } else if (insertedFacility) {
+          // Let the DB generate court UUIDs (don't pass client string ids).
+          const courtsToInsert = (data.courts && data.courts.length > 0 ? data.courts : [
+            { name: 'Court 1' }, { name: 'Court 2' }, { name: 'Court 3' }, { name: 'Court 4' },
+          ]).map((c, idx) => ({
+            facility_id: insertedFacility.id,
+            name: c.name || `Court ${idx + 1}`,
+            court_number: idx + 1,
+          }));
+
+          const { data: insertedCourts, error: courtsError } = await sb
+            .from('courts')
+            .insert(courtsToInsert)
+            .select();
+
+          if (courtsError) {
+            console.error('Supabase insert courts failed:', courtsError);
+          }
+
+          const savedCourts = (insertedCourts || courtsToInsert).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+          }));
+
+          resultFacility = {
+            id: insertedFacility.id,
+            name: insertedFacility.name,
+            address: insertedFacility.address,
+            city: insertedFacility.city,
+            country: insertedFacility.country,
+            googleMapsUrl: insertedFacility.google_maps_url || '',
+            isFavorite: data.isFavorite ?? true,
+            courts: savedCourts,
+          };
+        }
+      }
+    } catch (err: any) {
+      console.error('Supabase facility exception:', err);
+      supabaseError = err.message;
+    }
+
+    setFacilities((prev) => {
+      const existingIdx = prev.findIndex((f) => f.id === data.id);
+      if (existingIdx >= 0 && resultFacility) {
+        const updated = [...prev];
+        updated[existingIdx] = { ...updated[existingIdx], ...resultFacility };
+        return updated;
+      }
+      if (resultFacility) {
         return [resultFacility, ...prev];
       }
+      return prev;
     });
 
     if (!resultFacility) {
+      if (supabaseError) {
+        console.warn('Falling back to local-only facility due to Supabase error:', supabaseError);
+      }
+      const newId = data.id || `fac_${Date.now()}`;
+      const defaultCourts = data.courts && data.courts.length > 0 ? data.courts : [
+        { id: `c_${Date.now()}_1`, name: 'Court 1' },
+        { id: `c_${Date.now()}_2`, name: 'Court 2' },
+        { id: `c_${Date.now()}_3`, name: 'Court 3' },
+        { id: `c_${Date.now()}_4`, name: 'Court 4' },
+      ];
       resultFacility = {
-        id: data.id || `fac_${Date.now()}`,
+        id: newId,
         name: data.name,
         address: data.address,
         city: data.city || 'Dubai',
         country: data.country || 'United Arab Emirates',
         googleMapsUrl: data.googleMapsUrl || '',
         isFavorite: data.isFavorite ?? true,
-        courts: data.courts || [{ id: 'c1', name: 'Court 1' }],
+        courts: defaultCourts,
       };
     }
     return resultFacility;
@@ -1495,12 +1488,7 @@ type ProfileRow = {
   };
 
   const resetDemoData = () => {
-    localStorage.removeItem(`${STORAGE_KEY}_players`);
-    localStorage.removeItem(`${STORAGE_KEY}_facilities`);
-    localStorage.removeItem(`${STORAGE_KEY}_events`);
-    localStorage.removeItem(`${STORAGE_KEY}_groups`);
-    localStorage.removeItem(`${STORAGE_KEY}_requests`);
-    localStorage.removeItem(`${STORAGE_KEY}_current_user`);
+    clearPadelPersistence();
 
     setAllPlayers(SEED_PLAYERS);
     setFacilities(SEED_FACILITIES);
@@ -1519,6 +1507,7 @@ type ProfileRow = {
         events,
         playerGroups,
         notifications,
+        clearNotifications,
         partnerRequests,
         signUpAction,
         loginAction,
@@ -1549,6 +1538,7 @@ type ProfileRow = {
         addCoAdmin,
         removeCoAdmin,
         createPlayerGroupAction,
+        deletePlayerGroupAction,
         joinPlayerGroupAction,
         requestJoinPlayerGroupAction,
         approveGroupJoinRequestAction,

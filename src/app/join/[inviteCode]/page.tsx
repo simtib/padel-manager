@@ -19,7 +19,7 @@ function JoinInviteContent({ inviteCode }: { inviteCode: string }) {
   const handleJoin = async () => {
     if (!event) return;
     setJoining(true);
-    const res = joinEvent(event.id);
+    const res = await joinEvent(event.id);
     setJoining(false);
 
     if (res.success) {

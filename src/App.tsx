@@ -1,28 +1,37 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PadelProvider, usePadel } from './context/PadelContext';
 import { Navbar } from './components/Navbar';
 import { EventCard } from './components/EventCard';
-import { CreateEventModal } from './components/CreateEventModal';
-import { AuthModal } from './components/AuthModal';
 import { TournamentDetailContainer } from './components/TournamentDetail/TournamentDetailContainer';
 import { NormalMatchDetail } from './components/NormalMatchDetail';
 import { GroupsPage } from './components/GroupsPage';
 import { VenuesPage } from './components/VenuesPage';
 import { ProfilePage } from './components/ProfilePage';
-import { GroupInviteModal } from './components/GroupInviteModal';
 import { PlayerGroup } from './types';
-import { Trophy, Search, Filter, Plus, ShieldCheck, MapPin, Sparkles, Building2, Star } from 'lucide-react';
+import { Trophy, Search, Plus, History, ChevronDown } from 'lucide-react';
+
+const CreateEventModal = dynamic(() =>
+  import('./components/CreateEventModal').then((module) => module.CreateEventModal)
+);
+const AuthModal = dynamic(() =>
+  import('./components/AuthModal').then((module) => module.AuthModal)
+);
+const GroupInviteModal = dynamic(() =>
+  import('./components/GroupInviteModal').then((module) => module.GroupInviteModal)
+);
 
 function PadelAppContent() {
   const { events, currentUser, facilities, playerGroups } = usePadel();
 
   const [activeTab, setActiveTab] = useState<'games' | 'venues' | 'groups' | 'profile'>('games');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(
-    'evt_dubai_championship_2026' // Default to seed tournament so preview opens directly to the action!
-  );
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacilityFilter, setSelectedFacilityFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'tournament' | 'normal_match'>('all');
+  const [showPastEvents, setShowPastEvents] = useState(false);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -78,23 +87,40 @@ function PadelAppContent() {
     }
   }, [playerGroups]);
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const selectedEvent = useMemo(
+    () => events.find((e) => e.id === selectedEventId),
+    [events, selectedEventId]
+  );
 
   // Filter events list
-  const filteredEvents = events.filter((e) => {
-    if (typeFilter !== 'all' && e.type !== typeFilter) return false;
-    if (selectedFacilityFilter !== 'all' && e.facilityId !== selectedFacilityFilter) return false;
+  const filteredEvents = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return events.filter((e) => {
+      if (typeFilter !== 'all' && e.type !== typeFilter) return false;
+      if (selectedFacilityFilter !== 'all' && e.facilityId !== selectedFacilityFilter) return false;
+      if (!query) return true;
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = e.name.toLowerCase().includes(q);
-      const matchVenue = e.facilityName.toLowerCase().includes(q);
-      const matchOwner = e.ownerName.toLowerCase().includes(q);
-      if (!matchName && !matchVenue && !matchOwner) return false;
-    }
+      return e.name.toLowerCase().includes(query)
+        || e.facilityName.toLowerCase().includes(query)
+        || e.ownerName.toLowerCase().includes(query);
+    });
+  }, [events, searchQuery, selectedFacilityFilter, typeFilter]);
 
-    return true;
-  });
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = Date.now();
+    const upcoming: typeof filteredEvents = [];
+    const past: typeof filteredEvents = [];
+
+    filteredEvents.forEach((event) => {
+      const timestamp = new Date(`${event.date}T${event.startTime || '23:59'}`).getTime();
+      if (Number.isFinite(timestamp) && timestamp < now) past.push(event);
+      else upcoming.push(event);
+    });
+
+    upcoming.sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+    past.sort((a, b) => `${b.date}T${b.startTime}`.localeCompare(`${a.date}T${a.startTime}`));
+    return { upcomingEvents: upcoming, pastEvents: past };
+  }, [filteredEvents]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
@@ -199,10 +225,10 @@ function PadelAppContent() {
             </div>
 
             {/* Events Grid */}
-            {filteredEvents.length === 0 ? (
+            {upcomingEvents.length === 0 ? (
               <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-12 text-center text-slate-400 space-y-3">
                 <Trophy className="w-12 h-12 text-slate-600 mx-auto" />
-                <p className="font-bold text-white text-base">No Events Found</p>
+                <p className="font-bold text-white text-base">No Upcoming Events Found</p>
                 <p className="text-xs max-w-sm mx-auto">
                   Try adjusting your filters or create a new private padel game or tournament.
                 </p>
@@ -215,7 +241,7 @@ function PadelAppContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredEvents.map((event) => (
+                {upcomingEvents.map((event) => (
                   <EventCard
                     key={event.id}
                     event={event}
@@ -224,6 +250,38 @@ function PadelAppContent() {
                   />
                 ))}
               </div>
+            )}
+
+            {pastEvents.length > 0 && (
+              <section className="border-t border-slate-800 pt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowPastEvents((visible) => !visible)}
+                  className="w-full flex items-center justify-between bg-slate-900/60 hover:bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-left transition-colors"
+                  aria-expanded={showPastEvents}
+                >
+                  <span className="flex items-center gap-2 text-sm font-bold text-slate-200">
+                    <History className="w-4 h-4 text-slate-400" /> Past Events
+                    <span className="text-[11px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
+                      {pastEvents.length}
+                    </span>
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showPastEvents ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showPastEvents && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-5 opacity-80">
+                    {pastEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        onSelect={(id) => setSelectedEventId(id)}
+                        currentUserId={currentUser.id}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
           </div>
         )}
