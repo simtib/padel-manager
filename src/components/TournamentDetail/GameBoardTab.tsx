@@ -243,7 +243,7 @@ export const GameBoardTab: React.FC<GameBoardTabProps> = ({
                   {canEnterScore && (
                     <button
                       onClick={() => setSelectedMatchForScore(match)}
-                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-1.5 px-3 rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all"
+                      className="min-h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       {match.status === 'completed' ? 'Edit Score' : 'Enter Score'}

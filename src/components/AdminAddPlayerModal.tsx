@@ -48,8 +48,8 @@ export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event,
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 relative shadow-2xl text-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md overflow-y-auto p-3 sm:p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-5 sm:p-6 relative shadow-2xl text-slate-200 mx-auto my-3 sm:my-8 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors"
@@ -151,7 +151,7 @@ export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event,
                       ) : (
                         <button
                           onClick={() => handleAddCommunityPlayer(player.id, player.displayName)}
-                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-md shadow-emerald-500/10"
+                          className="min-h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-md shadow-emerald-500/10"
                         >
                           <UserPlus className="w-3.5 h-3.5" /> Add
                         </button>

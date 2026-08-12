@@ -85,11 +85,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
 
   return (
       <div
-        className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-3 sm:p-4 overflow-y-auto"
         onClick={onClose}
       >
         <div
-          className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl text-slate-200 my-8 max-h-[calc(100vh-2rem)] overflow-y-auto"
+          className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-5 sm:p-8 relative shadow-2xl text-slate-200 my-3 sm:my-8 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain"
           onClick={(e) => e.stopPropagation()}
         >
         <button
@@ -363,7 +363,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                       key={court.id}
                       type="button"
                       onClick={() => toggleCourt(court.id)}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+                      className={`min-h-11 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
                         isSelected
                           ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
@@ -398,7 +398,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                     : `${maxPlayers} Players (${maxPlayers / 2} Teams / ${maxPlayers / 8} Groups)`}
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[16, 24, 32, 48].map((cap) => (
                   <button
                     key={cap}
@@ -438,7 +438,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                       key={player.id}
                       type="button"
                       onClick={() => toggleCoAdmin(player.id)}
-                      className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1.5 transition-all ${
+                      className={`min-h-11 px-2.5 py-2 rounded-lg border text-xs flex items-center gap-1.5 transition-all ${
                         isSelected
                           ? 'bg-purple-500/20 border-purple-500 text-purple-300 font-bold'
                           : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'

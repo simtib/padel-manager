@@ -214,7 +214,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
             {isAdmin && (
               <button
                 onClick={() => setShowAdminAddPlayerModal(true)}
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+                className="min-h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-2 px-3 rounded-xl shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5 active:scale-95"
               >
                 <UserPlus className="w-3.5 h-3.5" /> Add Player
               </button>

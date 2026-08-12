@@ -145,7 +145,7 @@ export const KnockoutTab: React.FC<KnockoutTabProps> = ({
           {canEnterScore && (
             <button
               onClick={() => setSelectedMatchForScore(match)}
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] py-1 px-2.5 rounded-lg flex items-center gap-1 shadow transition-all"
+              className="min-h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] py-2 px-3 rounded-lg flex items-center gap-1 shadow transition-all"
             >
               <Edit3 className="w-3 h-3" />
               {match.status === 'completed' ? 'Edit' : 'Score'}
@@ -204,8 +204,8 @@ export const KnockoutTab: React.FC<KnockoutTabProps> = ({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto pb-4">
-          <div className="min-w-[760px] grid grid-cols-3 gap-6 items-center">
+        <div className="pb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-6 items-start lg:items-center">
             {/* Quarter Finals */}
             {qfMatches.length > 0 && (
               <div className="space-y-4">

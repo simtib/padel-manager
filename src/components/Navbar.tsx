@@ -305,10 +305,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Mobile Nav Tabs Bar */}
-      <div className="md:hidden flex items-center justify-around bg-slate-900 border-t border-slate-800 px-2 py-2 text-xs">
+      <div className="md:hidden flex items-center justify-around bg-slate-900 border-t border-slate-800 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] text-xs">
         <button
           onClick={() => setActiveTab('games')}
-          className={`flex flex-col items-center gap-1 ${
+          className={`min-h-11 min-w-16 flex flex-col items-center justify-center gap-1 ${
             activeTab === 'games' ? 'text-emerald-400 font-bold' : 'text-slate-400'
           }`}
         >
@@ -318,7 +318,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => setActiveTab('groups')}
-          className={`flex flex-col items-center gap-1 ${
+          className={`min-h-11 min-w-16 flex flex-col items-center justify-center gap-1 ${
             activeTab === 'groups' ? 'text-emerald-400 font-bold' : 'text-slate-400'
           }`}
         >
@@ -328,7 +328,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => setActiveTab('venues')}
-          className={`flex flex-col items-center gap-1 ${
+          className={`min-h-11 min-w-16 flex flex-col items-center justify-center gap-1 ${
             activeTab === 'venues' ? 'text-emerald-400 font-bold' : 'text-slate-400'
           }`}
         >

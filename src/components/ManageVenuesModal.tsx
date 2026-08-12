@@ -29,11 +29,11 @@ export const ManageVenuesModal: React.FC<ManageVenuesModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-3 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl text-slate-200 my-8 max-h-[calc(100vh-2rem)] overflow-y-auto"
+        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-5 sm:p-8 relative shadow-2xl text-slate-200 my-3 sm:my-8 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         <button
