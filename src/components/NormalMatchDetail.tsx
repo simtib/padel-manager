@@ -36,7 +36,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
   const [swapNotice, setSwapNotice] = useState<string | null>(null);
 
   const facility = facilities.find((f) => f.id === event.facilityId);
-  const isOwner = event.ownerId === currentUserId;
+  const isOwner = event.ownerId === currentUserId || event.participants[0]?.id === currentUserId;
   const isCoAdmin = event.coAdminIds.includes(currentUserId);
   const isAdmin = isOwner || isCoAdmin;
 

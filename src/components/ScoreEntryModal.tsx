@@ -8,6 +8,8 @@ interface ScoreEntryModalProps {
   onSaveScore: (matchId: string, score1: number, score2: number, sets?: SetScore[]) => void;
   onClose: () => void;
   isAdmin: boolean;
+  defaultMode?: 'best_of_3' | 'single_set';
+  lockMode?: boolean;
 }
 
 export const ScoreEntryModal: React.FC<ScoreEntryModalProps> = ({
@@ -16,6 +18,8 @@ export const ScoreEntryModal: React.FC<ScoreEntryModalProps> = ({
   onSaveScore,
   onClose,
   isAdmin,
+  defaultMode = 'best_of_3',
+  lockMode = false,
 }) => {
   const team1 = teamsMap[match.team1Id];
   const team2 = teamsMap[match.team2Id];
@@ -24,7 +28,7 @@ export const ScoreEntryModal: React.FC<ScoreEntryModalProps> = ({
   const team2Name = team2 ? team2.name : 'Team 2';
 
   const [mode, setMode] = useState<'best_of_3' | 'single_set'>(
-    match.sets && match.sets.length > 0 ? 'best_of_3' : 'best_of_3'
+    match.sets && match.sets.length > 0 ? 'best_of_3' : defaultMode
   );
 
   // Default sets state initialized from match.sets or defaults (6-4, 6-3)
@@ -165,7 +169,9 @@ export const ScoreEntryModal: React.FC<ScoreEntryModalProps> = ({
             <Trophy className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-extrabold text-lg text-white font-display">Record Set Score (Best of 3)</h3>
+            <h3 className="font-extrabold text-lg text-white font-display">
+              {mode === 'single_set' ? 'Record Game Score (Single Set)' : 'Record Set Score (Best of 3)'}
+            </h3>
             <p className="text-xs text-slate-400">
               {match.courtName} • {match.stage === 'knockout' ? `Knockout ${match.knockoutStage}` : `Round ${match.round}`}
             </p>
@@ -181,7 +187,7 @@ export const ScoreEntryModal: React.FC<ScoreEntryModalProps> = ({
         )}
 
         {/* Format Switcher */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 mb-5">
+        {!lockMode && <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 mb-5">
           <button
             type="button"
             onClick={() => setMode('best_of_3')}
@@ -204,7 +210,7 @@ export const ScoreEntryModal: React.FC<ScoreEntryModalProps> = ({
           >
             <Sliders className="w-3.5 h-3.5" /> Single Set / Total Games
           </button>
-        </div>
+        </div>}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Teams Header Bar */}

@@ -57,7 +57,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !date || (type === 'tournament' && maxPlayers === null)) return;
+    if (!name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)) return;
 
     const eventId = await createEvent({
       name,
@@ -190,7 +190,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 </div>
                 <p className="font-bold text-sm text-white">Custom</p>
                 <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                  Defined groups, court rotation & knockout bracket
+                  One-set games with defined groups, court rotation & knockout bracket
                 </p>
               </button>
             </div>
@@ -249,6 +249,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                     onChange={(e) => handleFacilityChange(e.target.value)}
                     className="flex-1 bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm focus:border-emerald-500 outline-none"
                   >
+                    {facilities.length === 0 && <option value="">No venues available</option>}
                     {/* Starred Favorites First */}
                     {facilities
                       .filter((f) => f.isFavorite)
@@ -353,25 +354,35 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 {selectedCourtIds.length === 0 ? 'No courts assigned' : `${selectedCourtIds.length} Selected`}
               </span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {selectedFacility.courts.map((court) => {
-                const isSelected = selectedCourtIds.includes(court.id);
-                return (
-                  <button
-                    key={court.id}
-                    type="button"
-                    onClick={() => toggleCourt(court.id)}
-                    className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
-                      isSelected
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    {court.name}
-                  </button>
-                );
-              })}
-            </div>
+            {selectedFacility ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedFacility.courts.map((court) => {
+                  const isSelected = selectedCourtIds.includes(court.id);
+                  return (
+                    <button
+                      key={court.id}
+                      type="button"
+                      onClick={() => toggleCourt(court.id)}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+                        isSelected
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      {court.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowVenuesModal(true)}
+                className="w-full rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-3 text-xs font-medium text-slate-400 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors"
+              >
+                Create or select a venue before allocating courts
+              </button>
+            )}
           </div>
 
           {/* Player Capacity (for Tournament) */}
@@ -451,7 +462,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || !date || (type === 'tournament' && maxPlayers === null)}
+              disabled={!name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)}
               className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none text-slate-950 font-extrabold text-xs py-3 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4" /> Create & Launch Event

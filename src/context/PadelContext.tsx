@@ -18,10 +18,7 @@ import {
 } from '../types';
 import { createClient } from '../lib/supabase/client';
 import {
-  SEED_FACILITIES,
   SEED_PLAYERS,
-  SEED_GROUPS,
-  SEED_EVENTS,
 } from '../data/seedData';
 import {
   generateTeamsFromParticipants,
@@ -37,6 +34,7 @@ import { createNotificationId, isValidUuid } from './contextHelpers';
 import { clearPadelPersistence, usePadelPersistence } from './usePadelPersistence';
 import { ensureProfile, toPlayerProfile, type ProfileRow } from './authProfile';
 import { useSupabaseAuthSync } from './useSupabaseAuthSync';
+import { useSupabaseEventSync } from './useSupabaseEventSync';
 
 // The app's seed/localStorage data uses human-readable string IDs (e.g. 'fac_1',
 // 'c1'), but the Supabase schema stores facilities/courts/events ids as UUIDs.
@@ -44,39 +42,8 @@ import { useSupabaseAuthSync } from './useSupabaseAuthSync';
 // would fail with an invalid-UUID / foreign-key violation.
 const PadelContext = createContext<PadelContextValue | null>(null);
 
-const SEED_PARTNER_REQUESTS: PartnerRequest[] = [
-  {
-    id: 'req_seed_1',
-    eventId: 'evt_abudhabi_cup_2026',
-    fromUserId: 'usr_john',
-    fromUserName: 'John Smith',
-    toUserId: 'usr_ahmed',
-    toUserName: 'Ahmed Al Mansoori',
-    status: 'accepted',
-    createdAt: '2026-08-06T10:05:00Z',
-  },
-];
-
-const SEED_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif_1',
-    userId: 'usr_simone',
-    title: 'Dubai Championship Ready',
-    message: 'Knockout Quarter-Final matches are ready to be played at Dubai Padel Club.',
-    date: '2026-08-07T08:00:00Z',
-    read: false,
-    eventId: 'evt_dubai_championship_2026',
-  },
-  {
-    id: 'notif_2',
-    userId: 'usr_marco',
-    title: 'Partner Confirmed',
-    message: 'Simone Rossi accepted your partner request for Dubai Night Padel Championship.',
-    date: '2026-08-06T12:00:00Z',
-    read: true,
-    eventId: 'evt_dubai_championship_2026',
-  },
-];
+const SEED_PARTNER_REQUESTS: PartnerRequest[] = [];
+const SEED_NOTIFICATIONS: NotificationItem[] = [];
 
 // All state is initialized from seed data so the server render and the
 // first client render match exactly. Persisted localStorage state is only
@@ -85,9 +52,9 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>(SEED_PLAYERS);
   const [currentUser, setCurrentUser] = useState<PlayerProfile>(SEED_PLAYERS[0]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [facilities, setFacilities] = useState<Facility[]>(SEED_FACILITIES);
-  const [events, setEvents] = useState<EventItem[]>(SEED_EVENTS);
-  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>(SEED_GROUPS);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
   const [partnerRequests, setPartnerRequests] = useState<PartnerRequest[]>(SEED_PARTNER_REQUESTS);
   const [notifications, setNotifications] = useState<NotificationItem[]>(SEED_NOTIFICATIONS);
 
@@ -96,6 +63,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     events, setEvents, playerGroups, setPlayerGroups, partnerRequests, setPartnerRequests,
   });
   useSupabaseAuthSync({ setIsAuthenticated, setCurrentUser, setAllPlayers });
+  useSupabaseEventSync(isAuthenticated, setEvents);
 
   const reportOperationError = (title: string, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error || 'Unexpected error');
@@ -295,6 +263,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const createEvent = async (newEventData: Partial<EventItem>): Promise<string> => {
     let eventId = `evt_${Date.now()}`;
     let supabaseError: string | undefined;
+    let creatorId = currentUser.id;
 
     try {
       const supabase = createClient();
@@ -304,6 +273,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const authUid = session?.user?.id;
 
       if (authUid) {
+        creatorId = authUid;
         // Restored sessions may belong to accounts created before the profile
         // trigger existed. Repair the FK target before inserting the event.
         await ensureProfile(supabase, session.user);
@@ -350,7 +320,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       facilityId: facility?.id || '',
       facilityName: facility?.name || '',
       courtIds: newEventData.courtIds || [],
-      ownerId: currentUser.id,
+      ownerId: creatorId,
       ownerName: currentUser.displayName,
       coAdminIds: newEventData.coAdminIds || [],
       maxPlayers: newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16),
@@ -359,7 +329,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status: 'open',
       participants: [
         {
-          id: currentUser.id,
+          id: creatorId,
           displayName: currentUser.displayName,
           isGuest: false,
           registeredAt: new Date().toISOString(),
@@ -1491,10 +1461,10 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearPadelPersistence();
 
     setAllPlayers(SEED_PLAYERS);
-    setFacilities(SEED_FACILITIES);
+    setFacilities([]);
     setCurrentUser(SEED_PLAYERS[0]);
-    setEvents(SEED_EVENTS);
-    setPlayerGroups(SEED_GROUPS);
+    setEvents([]);
+    setPlayerGroups([]);
     setPartnerRequests([]);
   };
 

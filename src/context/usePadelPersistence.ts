@@ -1,7 +1,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { EventItem, Facility, PartnerRequest, PlayerGroup, PlayerProfile } from '../types';
 
-const STORAGE_KEY = 'padel_manager_v1_state';
+const STORAGE_KEY = 'padel_manager_v2_state';
 
 type PersistenceOptions = {
   allPlayers: PlayerProfile[];

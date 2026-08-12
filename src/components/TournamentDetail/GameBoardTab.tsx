@@ -262,6 +262,8 @@ export const GameBoardTab: React.FC<GameBoardTabProps> = ({
           match={selectedMatchForScore}
           teamsMap={teamsMap}
           isAdmin={isOwner || isCoAdmin}
+          defaultMode={event.format === 'custom' ? 'single_set' : 'best_of_3'}
+          lockMode={event.format === 'custom'}
           onSaveScore={(mId, s1, s2, sets) => recordMatchScoreAction(event.id, mId, s1, s2, sets)}
           onClose={() => setSelectedMatchForScore(null)}
         />

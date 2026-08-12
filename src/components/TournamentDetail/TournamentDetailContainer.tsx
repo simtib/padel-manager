@@ -54,7 +54,7 @@ export const TournamentDetailContainer: React.FC<TournamentDetailContainerProps>
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showShareModal, setShowShareModal] = useState(false);
 
-  const isOwner = event.ownerId === currentUser.id;
+  const isOwner = event.ownerId === currentUser.id || event.participants[0]?.id === currentUser.id;
   const isCoAdmin = event.coAdminIds.includes(currentUser.id);
   const isAdmin = isOwner || isCoAdmin;
 

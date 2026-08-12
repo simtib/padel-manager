@@ -30,35 +30,37 @@ export function generateKnockoutBracket(
 
     const finalId = `ko_${eventId}_final`;
 
-    // Seeding logic: Group Winner vs Group Runner Up from different group
-    // e.g. QF1: Group A Winner vs Group B Runner Up
-    // QF2: Group B Winner vs Group A Runner Up
-    // QF3: Group C Winner vs Group D Runner Up
-    // QF4: Group D Winner vs Group C Runner Up
-    const winnerA = qualifiers.find((q) => q.groupName.includes('A') && q.position === 1)?.team;
-    const runnerB = qualifiers.find((q) => q.groupName.includes('B') && q.position === 2)?.team;
+    // Seed group winners first, followed by runners-up and best third-place
+    // qualifiers. Pair high seeds with low seeds from another group whenever
+    // possible, which also supports three-group tournaments without duplicates.
+    const seeded = qualifiers
+      .slice(0, 8)
+      .sort((a, b) => a.position - b.position || a.groupName.localeCompare(b.groupName));
+    const remaining = [...seeded];
+    const quarterFinalPairs: typeof seeded[] = [];
+    while (remaining.length >= 2) {
+      const highSeed = remaining.shift()!;
+      let opponentIndex = -1;
+      for (let index = remaining.length - 1; index >= 0; index -= 1) {
+        if (remaining[index].groupName !== highSeed.groupName) {
+          opponentIndex = index;
+          break;
+        }
+      }
+      if (opponentIndex < 0) opponentIndex = remaining.length - 1;
+      const opponent = remaining.splice(opponentIndex, 1)[0];
+      quarterFinalPairs.push([highSeed, opponent]);
+    }
 
-    const winnerB = qualifiers.find((q) => q.groupName.includes('B') && q.position === 1)?.team;
-    const runnerA = qualifiers.find((q) => q.groupName.includes('A') && q.position === 2)?.team;
-
-    const winnerC = qualifiers.find((q) => q.groupName.includes('C') && q.position === 1)?.team;
-    const runnerD = qualifiers.find((q) => q.groupName.includes('D') && q.position === 2)?.team;
-
-    const winnerD = qualifiers.find((q) => q.groupName.includes('D') && q.position === 1)?.team;
-    const runnerC = qualifiers.find((q) => q.groupName.includes('C') && q.position === 2)?.team;
-
-    // Fallbacks if groups differ
-    const q1T1 = winnerA?.id || qualifiers[0]?.team.id || '';
-    const q1T2 = runnerB?.id || qualifiers[1]?.team.id || '';
-
-    const q2T1 = winnerB?.id || qualifiers[2]?.team.id || '';
-    const q2T2 = runnerA?.id || qualifiers[3]?.team.id || '';
-
-    const q3T1 = winnerC?.id || qualifiers[4]?.team.id || '';
-    const q3T2 = runnerD?.id || qualifiers[5]?.team.id || '';
-
-    const q4T1 = winnerD?.id || qualifiers[6]?.team.id || '';
-    const q4T2 = runnerC?.id || qualifiers[7]?.team.id || '';
+    const [[q1a, q1b], [q2a, q2b], [q3a, q3b], [q4a, q4b]] = quarterFinalPairs;
+    const q1T1 = q1a?.team.id || '';
+    const q1T2 = q1b?.team.id || '';
+    const q2T1 = q2a?.team.id || '';
+    const q2T2 = q2b?.team.id || '';
+    const q3T1 = q3a?.team.id || '';
+    const q3T2 = q3b?.team.id || '';
+    const q4T1 = q4a?.team.id || '';
+    const q4T2 = q4b?.team.id || '';
 
     // Final Match
     knockoutMatches.push({

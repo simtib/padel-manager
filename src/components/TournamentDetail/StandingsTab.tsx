@@ -1,6 +1,6 @@
 import React from 'react';
 import { EventItem, Team } from '../../types';
-import { calculateGroupStandings } from '../../utils/engine';
+import { calculateGroupStandings, identifyQualifiers } from '../../utils/engine';
 import { Trophy, CheckCircle, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface StandingsTabProps {
@@ -20,6 +20,9 @@ export const StandingsTab: React.FC<StandingsTabProps> = ({
   event.teams.forEach((t) => {
     teamsMap[t.id] = t;
   });
+  const qualifierIds = new Set(
+    identifyQualifiers(event.groups, event.matches, teamsMap, event.rules).map(({ team }) => team.id)
+  );
 
   return (
     <div className="space-y-6">
@@ -68,7 +71,7 @@ export const StandingsTab: React.FC<StandingsTabProps> = ({
                     {group.name} Standings
                   </h4>
                   <span className="text-xs text-slate-400 font-medium">
-                    Top {event.rules.qualifiersPerGroup} teams qualify for Knockouts
+                    Top {event.rules.qualifiersPerGroup} qualify, plus the two best third-place teams overall
                   </span>
                 </div>
 
@@ -95,7 +98,7 @@ export const StandingsTab: React.FC<StandingsTabProps> = ({
                         <tr
                           key={st.teamId}
                           className={`hover:bg-slate-800/40 transition-colors ${
-                            st.qualified ? 'bg-emerald-500/5' : ''
+                            qualifierIds.has(st.teamId) ? 'bg-emerald-500/5' : ''
                           }`}
                         >
                           <td className="py-3 px-4 font-bold text-slate-400">
@@ -126,7 +129,7 @@ export const StandingsTab: React.FC<StandingsTabProps> = ({
                             {st.points}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            {st.qualified ? (
+                            {qualifierIds.has(st.teamId) ? (
                               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                                 Qualified
                               </span>

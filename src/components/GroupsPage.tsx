@@ -19,7 +19,7 @@ export const GroupsPage: React.FC = () => {
     rejectGroupJoinRequestAction,
   } = usePadel();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('groups');
+  const [viewMode, setViewMode] = useState<ViewMode>('players');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');

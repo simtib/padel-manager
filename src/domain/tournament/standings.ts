@@ -149,6 +149,32 @@ export function identifyQualifiers(
       });
   });
 
+  // A three-group tournament produces six automatic qualifiers (the top two
+  // in each group). Fill an eight-team quarter-final bracket with the two best
+  // third-place teams, ranked by the tournament's configured tie-break order.
+  const remainingQuarterFinalSpots = Math.max(0, 8 - qualifiers.length);
+  if (groups.length >= 3 && remainingQuarterFinalSpots > 0) {
+    const thirdPlacedTeams = groups.flatMap((group) => {
+      const standing = calculateGroupStandings(group, matches, teamsMap, rules)[2];
+      const team = standing ? teamsMap[standing.teamId] : undefined;
+      return standing && team ? [{ groupName: group.name, standing, team }] : [];
+    });
+
+    thirdPlacedTeams.sort((a, b) => {
+      for (const criterion of rules.tiebreakOrder) {
+        if (criterion === 'points' && b.standing.points !== a.standing.points) return b.standing.points - a.standing.points;
+        if (criterion === 'matchesWon' && b.standing.won !== a.standing.won) return b.standing.won - a.standing.won;
+        if (criterion === 'scoreDiff' && b.standing.difference !== a.standing.difference) return b.standing.difference - a.standing.difference;
+        if (criterion === 'scoreFor' && b.standing.gamesFor !== a.standing.gamesFor) return b.standing.gamesFor - a.standing.gamesFor;
+      }
+      return a.groupName.localeCompare(b.groupName);
+    });
+
+    thirdPlacedTeams.slice(0, remainingQuarterFinalSpots).forEach(({ groupName, team }) => {
+      qualifiers.push({ groupName, position: 3, team });
+    });
+  }
+
   return qualifiers;
 }
 
