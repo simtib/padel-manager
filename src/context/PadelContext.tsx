@@ -87,10 +87,12 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const signUpAction = async (data: { firstName: string; lastName: string; email: string; password: string }) => {
     try {
       const supabase = createClient();
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || window.location.origin;
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${siteUrl}/auth/confirm`,
           data: {
             first_name: data.firstName,
             last_name: data.lastName,
@@ -150,14 +152,23 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       if (authData.user) {
-        await ensureProfile(supabase, authData.user);
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .maybeSingle();
+        let profile: ProfileRow | null = null;
 
-        const profile = data as ProfileRow | null;
+        try {
+          await ensureProfile(supabase, authData.user);
+          const { data, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .maybeSingle();
+
+          if (profileError) throw profileError;
+          profile = data as ProfileRow | null;
+        } catch (profileError) {
+          // Authentication succeeded. Allow the user to continue with their
+          // auth metadata if the optional profile sync is temporarily unavailable.
+          console.warn('Supabase profile sync failed after login:', profileError);
+        }
 
         const newPlayer = toPlayerProfile(profile, authData.user);
 

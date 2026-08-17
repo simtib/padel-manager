@@ -7,10 +7,19 @@ export async function GET(request: NextRequest) {
 
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
+  const code = searchParams.get('code')
+
+  const supabase = await createClient()
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!error) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  }
 
   if (token_hash && type) {
-    const supabase = await createClient()
-
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
       type,
