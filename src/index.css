@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
-/* Chromium/WebKit otherwise renders the native date icon too dark against the
-   slate input background. Keep both the value and picker affordance white. */
+/* Render native date/time controls for a dark surface so their picker icons
+   remain white. Avoid an invert filter, which turns dark-mode icons black. */
+.date-input {
+  color-scheme: dark;
+}
+
 .date-input::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(2);
+  opacity: 1;
   cursor: pointer;
 }

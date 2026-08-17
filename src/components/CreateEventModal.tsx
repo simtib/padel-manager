@@ -300,7 +300,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-28 bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-emerald-500"
+                    className="date-input w-28 bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-emerald-500 [color-scheme:dark]"
                   />
                 </div>
               </div>
