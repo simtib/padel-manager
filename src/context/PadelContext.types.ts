@@ -19,6 +19,7 @@ export interface PadelContextValue {
   loginUser: (email: string) => boolean;
   registerUser: (firstName: string, lastName: string, email: string, mobile?: string) => void;
   createEvent: (newEventData: Partial<EventItem>) => Promise<string>;
+  updateEvent: (eventId: string, changes: Pick<EventItem, 'name' | 'description' | 'format' | 'date' | 'startTime' | 'visibility' | 'maxPlayers'>) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<boolean>;
   joinEvent: (eventId: string, preferredPartnerId?: string) => Promise<{ success: boolean; status?: 'confirmed' | 'waiting_list' }>;
   leaveEvent: (eventId: string, targetUserId?: string) => void;

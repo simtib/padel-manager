@@ -183,6 +183,7 @@ export interface EventItem {
   maxPlayers: number; // e.g. 48 or 4 for normal match
   maxTeams: number;   // maxPlayers / 2
   visibility: 'private' | 'public';
+  playerGroupId?: string;
   status: EventStatus;
   participants: Participant[];
   teams: Team[];

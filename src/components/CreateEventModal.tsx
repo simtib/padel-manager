@@ -10,12 +10,17 @@ interface CreateEventModalProps {
 }
 
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onSelectEvent }) => {
-  const { facilities, allPlayers, currentUser, createEvent, toggleFavoriteFacility, saveFacility } = usePadel();
+  const { facilities, allPlayers, playerGroups, currentUser, createEvent, toggleFavoriteFacility, saveFacility } = usePadel();
 
   const [type, setType] = useState<'tournament' | 'normal_match'>('tournament');
   const [format, setFormat] = useState<EventFormat>('custom');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [visibility, setVisibility] = useState<'private' | 'public'>('private');
+  const [playerGroupId, setPlayerGroupId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const availableGroups = playerGroups.filter((group) => group.ownerId === currentUser.id || group.memberIds.includes(currentUser.id));
   const [facilityId, setFacilityId] = useState(facilities[0]?.id || '');
   const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([]);
   const [date, setDate] = useState(() => {
@@ -57,11 +62,21 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    if (visibility === 'private' && !availableGroups.some((group) => group.id === playerGroupId)) {
+      setError('Select a player group for this private game.');
+      return;
+    }
     if (!name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)) return;
 
+    setSaving(true);
+    setError('');
+    try {
     const eventId = await createEvent({
       name,
       description,
+      visibility,
+      playerGroupId: visibility === 'private' ? playerGroupId : undefined,
       type,
       format,
       facilityId,
@@ -81,6 +96,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
 
     onSelectEvent(eventId);
     onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create the game. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -225,6 +245,54 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
               />
             </div>
           </div>
+
+          <fieldset>
+            <legend className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              Event Visibility
+            </legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(['private', 'public'] as const).map((option) => (
+                <label
+                  key={option}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-colors ${
+                    visibility === option
+                      ? 'bg-emerald-500/10 border-emerald-500'
+                      : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value={option}
+                    checked={visibility === option}
+                    onChange={() => setVisibility(option)}
+                    className="mt-1 accent-emerald-500"
+                  />
+                  <span>
+                    <span className="block font-bold text-sm text-white">
+                      {option === 'private' ? 'Private' : 'Public'}
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-1">
+                      {option === 'private'
+                        ? 'Visible to the organizer, co-admins, and participants.'
+                        : 'Visible to all signed-in players.'}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {visibility === 'private' && (
+            <div>
+              <label htmlFor="event-player-group" className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">Player group *</label>
+              <select id="event-player-group" required value={playerGroupId} onChange={(e) => setPlayerGroupId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm">
+                <option value="">Select a player group</option>
+                {availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+              <p className="text-xs text-slate-400 mt-2">{availableGroups.length ? 'Members of this group can view the private game and register to play.' : 'Create or join a player group in Groups before creating a private game.'}</p>
+            </div>
+          )}
 
           {/* Venue & Courts Selection */}
           <div className="space-y-3">
@@ -452,6 +520,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
             </div>
           </div>
 
+          {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
           <div className="flex items-center gap-3 pt-4 border-t border-slate-800">
             <button
               type="button"
@@ -462,10 +531,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)}
+              disabled={saving || (visibility === 'private' && !availableGroups.some((group) => group.id === playerGroupId)) || !name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)}
               className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none text-slate-950 font-extrabold text-xs py-3 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
             >
-              <Check className="w-4 h-4" /> Create & Launch Event
+              <Check className="w-4 h-4" /> {saving ? 'Creating...' : 'Create & Launch Event'}
             </button>
           </div>
         </form>

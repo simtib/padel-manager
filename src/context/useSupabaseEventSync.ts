@@ -22,7 +22,9 @@ const reconcileEvents = (rows: EventRow[], previous: EventItem[]): EventItem[] =
   return rows.map((row) => {
     const cached = cachedById.get(row.id);
     const type = eventType(row.event_type);
-    const format: EventFormat = cached?.format || (type === 'normal_match' ? 'standard_3_sets' : 'custom');
+    const storedFormat = (row as EventRow & { format?: string | null }).format;
+    const format: EventFormat = storedFormat === 'standard_3_sets' || storedFormat === 'americano' || storedFormat === 'custom'
+      ? storedFormat : cached?.format || (type === 'normal_match' ? 'standard_3_sets' : 'custom');
 
     return {
       id: row.id,
@@ -41,6 +43,7 @@ const reconcileEvents = (rows: EventRow[], previous: EventItem[]): EventItem[] =
       maxPlayers: row.max_players,
       maxTeams: row.max_players / 2,
       visibility: row.visibility === 'public' ? 'public' : 'private',
+      playerGroupId: (row as EventRow & { player_group_id?: string | null }).player_group_id || undefined,
       status: eventStatus(row.status),
       participants: cached?.participants || [],
       teams: cached?.teams || [],

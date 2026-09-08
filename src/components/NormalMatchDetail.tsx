@@ -4,6 +4,7 @@ import { usePadel } from '../context/PadelContext';
 import { ScoreEntryModal } from './ScoreEntryModal';
 import { ManageVenuesModal } from './ManageVenuesModal';
 import { AdminAddPlayerModal } from './AdminAddPlayerModal';
+import { EditEventButton } from './EditEventButton';
 import { Trophy, Calendar, MapPin, Users, Edit3, ArrowLeft, CheckCircle, UserPlus, LogOut, Clock3, Map, ExternalLink, Star, LayoutGrid, RefreshCw, Settings2, GripVertical, Sparkles, ArrowLeftRight, Check, Trash2 } from 'lucide-react';
 
 interface NormalMatchDetailProps {
@@ -68,6 +69,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
       </button>
 
       {/* Main Card */}
+      <EditEventButton event={event} />
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
           <div className="space-y-2">

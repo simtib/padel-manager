@@ -10,6 +10,7 @@ import { StandingsTab } from './StandingsTab';
 import { KnockoutTab } from './KnockoutTab';
 import { AdminsTab } from './AdminsTab';
 import { ShareModal } from '../ShareModal';
+import { EditEventButton } from '../EditEventButton';
 import {
   Trophy,
   Users,
@@ -70,6 +71,7 @@ export const TournamentDetailContainer: React.FC<TournamentDetailContainerProps>
         </button>
 
         <div className="flex items-center gap-2">
+          <EditEventButton event={event} />
           {isAdmin && (
             <button
               onClick={async () => {

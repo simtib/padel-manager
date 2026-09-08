@@ -272,6 +272,10 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const createEvent = async (newEventData: Partial<EventItem>): Promise<string> => {
+    const playerGroup = (newEventData.visibility || 'private') === 'private'
+      ? playerGroups.find((group) => group.id === newEventData.playerGroupId && (group.ownerId === currentUser.id || group.memberIds.includes(currentUser.id)))
+      : undefined;
+    if ((newEventData.visibility || 'private') === 'private' && !playerGroup) throw new Error('Select a player group for this private game.');
     let eventId = `evt_${Date.now()}`;
     let supabaseError: string | undefined;
     let creatorId = currentUser.id;
@@ -285,6 +289,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (authUid) {
         creatorId = authUid;
+        if (playerGroup && !isValidUuid(playerGroup.id)) throw new Error('This player group has not been saved. Create a saved group before creating the private game.');
         // Restored sessions may belong to accounts created before the profile
         // trigger existed. Repair the FK target before inserting the event.
         await ensureProfile(supabase, session.user);
@@ -300,10 +305,11 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           start_time_value: newEventData.startTime || '18:00',
           facility_id_value: facility && isValidUuid(facility.id) ? facility.id : null,
           visibility_value: newEventData.visibility || 'private',
+          player_group_id_value: playerGroup?.id || null,
           max_players_value: newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16),
           court_ids: courtIds,
           co_admin_ids: coAdminIds,
-          rules_value: newEventData.rules || {},
+          rules_value: { ...newEventData.rules, format: newEventData.format || (newEventData.type === 'normal_match' ? 'standard_3_sets' : 'custom') },
         });
 
         if (eventError) {
@@ -318,6 +324,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       supabaseError = err.message;
     }
 
+    if (supabaseError) throw new Error(supabaseError);
     const facility = facilities.find((f) => f.id === newEventData.facilityId) || facilities[0];
 
     const newEvent: EventItem = {
@@ -337,6 +344,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       maxPlayers: newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16),
       maxTeams: (newEventData.type === 'normal_match' ? 4 : (newEventData.maxPlayers || 16)) / 2,
       visibility: newEventData.visibility || 'private',
+      playerGroupId: playerGroup?.id,
       status: 'open',
       participants: [
         {
@@ -362,6 +370,37 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setEvents((prev) => [newEvent, ...prev]);
     return eventId;
+  };
+
+  const updateEvent: PadelContextValue['updateEvent'] = async (eventId, changes) => {
+    const event = events.find((item) => item.id === eventId);
+    if (!event || (event.ownerId !== currentUser.id && !event.coAdminIds.includes(currentUser.id))) {
+      throw new Error('Only the organizer or a co-admin can edit this event.');
+    }
+    const format = changes.format || event.format || (event.type === 'normal_match' ? 'standard_3_sets' : 'custom');
+    const type = format === 'standard_3_sets' ? 'normal_match' : 'tournament';
+    const maxPlayers = type === 'normal_match' ? 4 : changes.maxPlayers;
+    if (!changes.name.trim()) throw new Error('Enter an event name.');
+    if (!Number.isInteger(maxPlayers) || maxPlayers < 4 || maxPlayers % 2 !== 0) throw new Error('Player capacity must be an even number of at least 4.');
+    if (maxPlayers < event.participants.filter((p) => p.status === 'confirmed').length) throw new Error('Remove confirmed players before reducing capacity below the current player count.');
+    if ((format !== (event.format || (event.type === 'normal_match' ? 'standard_3_sets' : 'custom'))) && (event.teams.length || event.groups.length || event.matches.length || !['draft', 'open', 'full'].includes(event.status))) {
+      throw new Error('Game format cannot change after teams or matches have been created.');
+    }
+    if (isValidUuid(eventId)) {
+      const sb = createClient() as any;
+      const { error } = await sb.rpc('update_event_settings', {
+        target_event_id: eventId, event_name: changes.name.trim(), event_description: changes.description || '',
+        format_value: format, event_date_value: changes.date, start_time_value: changes.startTime,
+        visibility_value: changes.visibility, max_players_value: maxPlayers,
+      });
+      if (error) throw new Error(error.message);
+    }
+    setEvents((previous) => previous.map((item) => item.id === eventId ? {
+      ...item, ...changes, name: changes.name.trim(), format, type, maxPlayers, maxTeams: maxPlayers / 2,
+      status: ['open', 'full'].includes(item.status)
+        ? (item.participants.filter((p) => p.status === 'confirmed').length >= maxPlayers ? 'full' : 'open')
+        : item.status,
+    } : item));
   };
 
   const deleteEvent = async (eventId: string): Promise<boolean> => {
@@ -1500,6 +1539,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loginUser,
         registerUser,
         createEvent,
+        updateEvent,
         deleteEvent,
         joinEvent,
         leaveEvent,
