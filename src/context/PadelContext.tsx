@@ -35,6 +35,7 @@ import { clearPadelPersistence, usePadelPersistence } from './usePadelPersistenc
 import { ensureProfile, toPlayerProfile, type ProfileRow } from './authProfile';
 import { useSupabaseAuthSync } from './useSupabaseAuthSync';
 import { useSupabaseEventSync } from './useSupabaseEventSync';
+import { useSupabasePlayerSync } from './useSupabasePlayerSync';
 
 // The app's seed/localStorage data uses human-readable string IDs (e.g. 'fac_1',
 // 'c1'), but the Supabase schema stores facilities/courts/events ids as UUIDs.
@@ -63,6 +64,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     events, setEvents, playerGroups, setPlayerGroups, partnerRequests, setPartnerRequests,
   });
   useSupabaseAuthSync({ setIsAuthenticated, setCurrentUser, setAllPlayers });
+  useSupabasePlayerSync(isAuthenticated, setAllPlayers);
   useSupabaseEventSync(isAuthenticated, setEvents);
 
   const reportOperationError = (title: string, error: unknown) => {
