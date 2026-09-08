@@ -430,6 +430,11 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { data: { session } } = await sb.auth.getSession();
       const authUid = session?.user?.id;
 
+      if (isValidUuid(eventId) && !authUid) {
+        reportOperationError('Could not join event', 'Please sign in again before registering.');
+        return { success: false };
+      }
+
       if (authUid && isValidUuid(eventId)) {
         const event = events.find((e) => e.id === eventId);
         if (!event) {
@@ -449,12 +454,18 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else if (registrationStatus === 'confirmed' || registrationStatus === 'waiting_list') {
           resultStatus = registrationStatus;
           usedServerStatus = true;
+        } else {
+          supabaseError = 'The server did not confirm your registration. Please try again.';
+          reportOperationError('Could not join event', supabaseError);
         }
       }
     } catch (err: any) {
       console.error('Supabase join event exception:', err);
       supabaseError = err.message;
+      reportOperationError('Could not join event', err);
     }
+
+    if (supabaseError) return { success: false };
 
     setEvents((prev) =>
       prev.map((event) => {
