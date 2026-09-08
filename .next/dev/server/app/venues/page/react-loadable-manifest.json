@@ -1,0 +1,20 @@
+{
+  "[project]/src/components/CreateEventModal.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/src/components/CreateEventModal.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/src_components_CreateEventModal_tsx_06iq2ze._.js"
+    ]
+  },
+  "[project]/src/components/AuthModal.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/src/components/AuthModal.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/src_components_AuthModal_tsx_0qbeetg._.js"
+    ]
+  },
+  "[project]/src/components/GroupInviteModal.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/src/components/GroupInviteModal.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/src_components_GroupInviteModal_tsx_0b6b2gq._.js"
+    ]
+  }
+}

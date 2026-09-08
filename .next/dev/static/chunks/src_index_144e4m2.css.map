@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/Admin/Documents/GitHub/padel-manager/src/index.css"],"sourcesContent":["@import \"tailwindcss\";\r\n\r\n/* Render native date/time controls for a dark surface so their picker icons\r\n   remain white. Avoid an invert filter, which turns dark-mode icons black. */\r\n.date-input {\r\n  color-scheme: dark;\r\n}\r\n\r\n.date-input::-webkit-calendar-picker-indicator {\r\n  opacity: 1;\r\n  cursor: pointer;\r\n}\r\n"],"names":[],"mappings":"AAIA;;;;;;AAIA"}}]
+}

@@ -1,0 +1,16 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/auth/confirm/route": "/auth/confirm",
+  "/dashboard/page": "/dashboard",
+  "/forgot-password/page": "/forgot-password",
+  "/games/page": "/games",
+  "/join/[inviteCode]/page": "/join/[inviteCode]",
+  "/login/page": "/login",
+  "/page": "/",
+  "/player-groups/page": "/player-groups",
+  "/profile/page": "/profile",
+  "/reset-password/page": "/reset-password",
+  "/signup/page": "/signup",
+  "/tournaments/page": "/tournaments"
+}

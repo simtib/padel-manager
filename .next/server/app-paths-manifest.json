@@ -1,0 +1,16 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/confirm/route": "app/auth/confirm/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/forgot-password/page": "app/forgot-password/page.js",
+  "/games/page": "app/games/page.js",
+  "/join/[inviteCode]/page": "app/join/[inviteCode]/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/player-groups/page": "app/player-groups/page.js",
+  "/profile/page": "app/profile/page.js",
+  "/reset-password/page": "app/reset-password/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/tournaments/page": "app/tournaments/page.js"
+}

@@ -1,0 +1,13 @@
+/* [project]/src/index.css [app-client] (css) */
+.date-input {
+  --lightningcss-light: ;
+  --lightningcss-dark: initial;
+  color-scheme: dark;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+}
+
+/*# sourceMappingURL=src_index_144e4m2.css.map*/
