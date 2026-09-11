@@ -10,7 +10,8 @@ import {
   X,
   LogOut,
   MapPin,
-  Trash2
+  Trash2,
+  MessageCircle
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -18,6 +19,9 @@ interface NavbarProps {
   setActiveTab: (tab: 'games' | 'venues' | 'groups' | 'profile') => void;
   onOpenCreateModal: () => void;
   onOpenAuthModal: () => void;
+  onOpenFeedbackModal: () => void;
+  onOpenMyFeedback: () => void;
+  onOpenManageFeedback: () => void;
   onSelectEvent: (eventId: string) => void;
 }
 
@@ -26,9 +30,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   onOpenCreateModal,
   onOpenAuthModal,
+  onOpenFeedbackModal,
+  onOpenMyFeedback,
+  onOpenManageFeedback,
   onSelectEvent,
 }) => {
-  const { currentUser, isAuthenticated, notifications, clearNotifications, partnerRequests, respondToPartnerRequest, logoutAction } = usePadel();
+  const { currentUser, isAuthenticated, isAppAdmin, notifications, clearNotifications, partnerRequests, respondToPartnerRequest, logoutAction } = usePadel();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -248,6 +255,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
+              aria-label="Open profile menu"
               className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-xs"
             >
               <img
@@ -275,6 +283,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <UserIcon className="w-3.5 h-3.5" /> Profile
                     </button>
+                    <button
+                      onClick={() => {
+                        onOpenFeedbackModal();
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> Provide Feedback
+                    </button>
+                    <button onClick={() => { onOpenMyFeedback(); setShowProfileMenu(false); }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2">
+                      <MessageCircle className="w-3.5 h-3.5" /> My Feedback
+                    </button>
+                    {isAppAdmin && <button onClick={() => { onOpenManageFeedback(); setShowProfileMenu(false); }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2">
+                      <MessageCircle className="w-3.5 h-3.5" /> Manage Feedback
+                    </button>}
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-rose-300 hover:bg-slate-800 hover:text-rose-200 transition-colors flex items-center gap-2"

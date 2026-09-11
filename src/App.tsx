@@ -11,7 +11,7 @@ import { GroupsPage } from './components/GroupsPage';
 import { VenuesPage } from './components/VenuesPage';
 import { ProfilePage } from './components/ProfilePage';
 import { PlayerGroup } from './types';
-import { Trophy, Search, Plus, History, ChevronDown } from 'lucide-react';
+import { Trophy, Search, Plus, History, ChevronDown, X } from 'lucide-react';
 
 const CreateEventModal = dynamic(() =>
   import('./components/CreateEventModal').then((module) => module.CreateEventModal)
@@ -19,12 +19,16 @@ const CreateEventModal = dynamic(() =>
 const AuthModal = dynamic(() =>
   import('./components/AuthModal').then((module) => module.AuthModal)
 );
+const ProvideFeedbackModal = dynamic(() =>
+  import('./components/ProvideFeedbackModal').then((module) => module.ProvideFeedbackModal)
+);
+const FeedbackView = dynamic(() => import('./components/FeedbackView').then((module) => module.FeedbackView));
 const GroupInviteModal = dynamic(() =>
   import('./components/GroupInviteModal').then((module) => module.GroupInviteModal)
 );
 
 function PadelAppContent() {
-  const { events, currentUser, facilities, playerGroups } = usePadel();
+  const { events, currentUser, facilities, playerGroups, isAuthenticated, isAppAdmin } = usePadel();
 
   const [activeTab, setActiveTab] = useState<'games' | 'venues' | 'groups' | 'profile'>('games');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -35,6 +39,8 @@ function PadelAppContent() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackScope, setFeedbackScope] = useState<'mine' | 'all' | null>(null);
   const [inviteGroup, setInviteGroup] = useState<PlayerGroup | null>(null);
   const [inviteSharerId, setInviteSharerId] = useState<string | undefined>(undefined);
 
@@ -125,7 +131,7 @@ function PadelAppContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Main Navigation Header */}
-      <Navbar
+       <Navbar
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
@@ -133,6 +139,9 @@ function PadelAppContent() {
         }}
         onOpenCreateModal={() => setShowCreateModal(true)}
         onOpenAuthModal={() => setShowAuthModal(true)}
+        onOpenFeedbackModal={() => setShowFeedbackModal(true)}
+        onOpenMyFeedback={() => setFeedbackScope('mine')}
+        onOpenManageFeedback={() => setFeedbackScope('all')}
         onSelectEvent={(id) => setSelectedEventId(id)}
       />
 
@@ -159,7 +168,7 @@ function PadelAppContent() {
         ) : activeTab === 'groups' ? (
           <GroupsPage />
         ) : activeTab === 'profile' ? (
-          <ProfilePage />
+          <ProfilePage onOpenMyFeedback={() => setFeedbackScope('mine')} onOpenManageFeedback={() => setFeedbackScope('all')} />
         ) : (
           /* Tournaments / Events List View */
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -236,7 +245,7 @@ function PadelAppContent() {
                   onClick={() => setShowCreateModal(true)}
                   className="bg-emerald-500 text-slate-950 font-bold text-xs py-2.5 px-5 rounded-xl inline-flex items-center gap-2 mt-2"
                 >
-                  <Plus className="w-4 h-4" /> Create Tournament Now
+                  <Plus className="w-4 h-4" /> Create Game
                 </button>
               </div>
             ) : (
@@ -299,6 +308,17 @@ function PadelAppContent() {
       )}
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+
+      {showFeedbackModal && <ProvideFeedbackModal onClose={() => setShowFeedbackModal(false)} onOpenAuthModal={() => setShowAuthModal(true)} />}
+      {feedbackScope && isAuthenticated && (feedbackScope === 'mine' || isAppAdmin) && (
+        <div role="dialog" aria-modal="true" aria-label={feedbackScope === 'mine' ? 'My Feedback' : 'Manage Feedback'}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md overflow-y-auto p-3 sm:p-4">
+          <div className="bg-slate-950 rounded-3xl w-full max-w-6xl p-1 sm:p-2 relative mx-auto my-3 sm:my-8 max-h-[calc(100dvh-1.5rem)] overflow-y-auto">
+            <button aria-label="Close feedback" onClick={() => setFeedbackScope(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white z-10"><X className="w-5 h-5" /></button>
+            <FeedbackView key={`${currentUser.id}:${feedbackScope}`} scope={feedbackScope} />
+          </div>
+        </div>
+      )}
 
       {/* Group Invite Modal from Shared Link */}
       {inviteGroup && (

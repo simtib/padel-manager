@@ -212,3 +212,19 @@ export interface NotificationItem {
   read: boolean;
   eventId?: string;
 }
+
+export type FeedbackType = 'bug' | 'suggestion' | 'feature_request' | 'other';
+
+export type FeedbackStatus = 'new' | 'reviewing' | 'planned' | 'done' | 'rejected';
+
+export interface FeedbackItem {
+  id: string;
+  userId: string;
+  type: FeedbackType;
+  title: string;
+  description: string;
+  pageRoute?: string;
+  status: FeedbackStatus;
+  contactConsent: boolean;
+  createdAt: string;
+}

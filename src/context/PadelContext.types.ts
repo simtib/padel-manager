@@ -1,4 +1,4 @@
-import type { EventItem, Facility, NotificationItem, PartnerRequest, PlayerGroup, PlayerProfile, SetScore, Team, TournamentGroup } from '../types';
+import type { EventItem, Facility, NotificationItem, PartnerRequest, PlayerGroup, PlayerProfile, SetScore, Team, TournamentGroup, FeedbackItem } from '../types';
 
 export interface PadelContextValue {
   currentUser: PlayerProfile;
@@ -9,6 +9,10 @@ export interface PadelContextValue {
   notifications: NotificationItem[];
   clearNotifications: () => void;
   partnerRequests: PartnerRequest[];
+  isAppAdmin: boolean;
+  submitFeedback: (data: { type: FeedbackItem['type']; title: string; description: string; pageRoute?: string; contactConsent: boolean }) => Promise<{ success: boolean; error?: string }>;
+  fetchFeedback: (scope: 'mine' | 'all') => Promise<FeedbackItem[]>;
+  updateFeedbackStatus: (feedbackId: string, status: FeedbackItem['status']) => Promise<boolean>;
   signUpAction: (data: { firstName: string; lastName: string; email: string; password: string }) => Promise<{ success: boolean; error?: string }>;
   loginAction: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logoutAction: () => Promise<void>;

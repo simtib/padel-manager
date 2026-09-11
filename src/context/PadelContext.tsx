@@ -35,6 +35,7 @@ import { clearPadelPersistence, usePadelPersistence } from './usePadelPersistenc
 import { ensureProfile, toPlayerProfile, type ProfileRow } from './authProfile';
 import { useSupabaseAuthSync } from './useSupabaseAuthSync';
 import { useSupabaseEventSync } from './useSupabaseEventSync';
+import { useFeedback } from './useFeedback';
 import { useSupabasePlayerSync } from './useSupabasePlayerSync';
 
 // The app's seed/localStorage data uses human-readable string IDs (e.g. 'fac_1',
@@ -58,6 +59,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
   const [partnerRequests, setPartnerRequests] = useState<PartnerRequest[]>(SEED_PARTNER_REQUESTS);
   const [notifications, setNotifications] = useState<NotificationItem[]>(SEED_NOTIFICATIONS);
+  const { isAppAdmin, fetchFeedback, submitFeedback, updateFeedbackStatus } = useFeedback(isAuthenticated, currentUser.id);
 
   usePadelPersistence({
     allPlayers, setAllPlayers, currentUser, setCurrentUser, facilities, setFacilities,
@@ -1541,8 +1543,12 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         playerGroups,
         notifications,
         clearNotifications,
-        partnerRequests,
-        signUpAction,
+         partnerRequests,
+          isAppAdmin,
+          submitFeedback,
+          fetchFeedback,
+          updateFeedbackStatus,
+          signUpAction,
         loginAction,
         logoutAction,
         forgotPasswordAction,

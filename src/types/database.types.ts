@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_admins: {
+        Row: { user_id: string; created_at: string }
+        Insert: { user_id: string; created_at?: string }
+        Update: { user_id?: string; created_at?: string }
+        Relationships: [{
+          foreignKeyName: "application_admins_user_id_fkey"
+          columns: ["user_id"]
+          isOneToOne: true
+          referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        }]
+      }
       courts: {
         Row: {
           court_number: number | null
@@ -278,6 +290,53 @@ export type Database = {
           {
             foreignKeyName: "facilities_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback: {
+        Row: {
+          contact_consent: boolean | null
+          created_at: string
+          description: string
+          id: string
+          page_route: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_consent?: boolean | null
+          created_at?: string
+          description: string
+          id?: string
+          page_route?: string | null
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_consent?: boolean | null
+          created_at?: string
+          description?: string
+          id?: string
+          page_route?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -803,6 +862,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_app_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       can_view_event: { Args: { target_event_id: string }; Returns: boolean }
       is_event_admin: { Args: { target_event_id: string }; Returns: boolean }
       record_match_score: {

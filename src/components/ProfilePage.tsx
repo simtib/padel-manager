@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { usePadel } from '../context/PadelContext';
-import { Trophy, Calendar, Edit2, Phone, Mail, X, MapPin, LogOut, Clock3, CheckCircle, Ticket } from 'lucide-react';
+import { Trophy, Calendar, Edit2, Phone, Mail, X, MapPin, LogOut, Clock3, CheckCircle, Ticket, MessageCircle } from 'lucide-react';
 
-export const ProfilePage: React.FC = () => {
-  const { currentUser, updateProfile, events, leaveEvent, logoutAction, isAuthenticated } = usePadel();
+export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageFeedback: () => void }> = ({ onOpenMyFeedback, onOpenManageFeedback }) => {
+  const { currentUser, updateProfile, events, leaveEvent, logoutAction, isAuthenticated, isAppAdmin } = usePadel();
 
   const [isEditing, setIsEditing] = useState(false);
+
   const [displayName, setDisplayName] = useState(currentUser.displayName);
   const [mobileNumber, setMobileNumber] = useState(currentUser.mobileNumber || '');
 
@@ -73,6 +74,17 @@ export const ProfilePage: React.FC = () => {
               className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:border-rose-500/50 font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+          )}
+
+          {isAuthenticated && <button onClick={onOpenMyFeedback} className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl flex items-center gap-2"><MessageCircle className="w-4 h-4 text-emerald-400" /> My Feedback</button>}
+          {isAuthenticated && isAppAdmin && (
+            <button
+              onClick={onOpenManageFeedback}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-600 font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-400" />
+              Manage Feedback
             </button>
           )}
         </div>
@@ -223,7 +235,7 @@ export const ProfilePage: React.FC = () => {
 
       {/* Edit Profile Modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-3 sm:p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md overflow-y-auto p-3 sm:p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-5 sm:p-6 relative shadow-2xl text-slate-200 mx-auto my-3 sm:my-8 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain">
             <button
               onClick={() => setIsEditing(false)}
@@ -279,6 +291,8 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
       )}
+
+
     </div>
   );
 };
