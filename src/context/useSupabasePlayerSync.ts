@@ -2,6 +2,7 @@ import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import type { PlayerProfile } from '../types';
 import { createClient } from '../lib/supabase/client';
 import { toPlayerProfile, type ProfileRow } from './authProfile';
+import { SEED_PLAYERS } from '../data/seedData';
 
 export const useSupabasePlayerSync = (
   isAuthenticated: boolean,
@@ -34,7 +35,7 @@ export const useSupabasePlayerSync = (
 
         setAllPlayers((previous) => {
           const cached = new Map(previous.map((player) => [player.id, player]));
-          return rows.map((row) => {
+          const registeredPlayers = rows.map((row) => {
             const profile = toPlayerProfile(row, { id: row.id });
             const existing = cached.get(row.id);
             // Keep locally calculated match statistics while refreshing identity fields.
@@ -50,6 +51,12 @@ export const useSupabasePlayerSync = (
               createdAt: profile.createdAt,
             } : profile;
           });
+          const demoPlayers = SEED_PLAYERS.map((player) => cached.get(player.id) ?? player);
+          const registeredIds = new Set(registeredPlayers.map((player) => player.id));
+          return [
+            ...registeredPlayers,
+            ...demoPlayers.filter((player) => !registeredIds.has(player.id)),
+          ];
         });
       } catch (error) {
         if (!disposed) console.error('Error refreshing player directory:', error);

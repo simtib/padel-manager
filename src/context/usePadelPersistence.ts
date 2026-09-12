@@ -1,5 +1,6 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { EventItem, Facility, PartnerRequest, PlayerGroup, PlayerProfile } from '../types';
+import { withDemoPlayers } from './playerDirectory';
 
 const STORAGE_KEY = 'padel_manager_v2_state';
 
@@ -29,7 +30,7 @@ export const usePadelPersistence = (options: PersistenceOptions) => {
   useEffect(() => {
     try {
       const players = readJson<PlayerProfile[]>(`${STORAGE_KEY}_players`);
-      if (players) options.setAllPlayers(players);
+      if (players) options.setAllPlayers(withDemoPlayers(players));
       const facilities = readJson<Facility[]>(`${STORAGE_KEY}_facilities`);
       if (facilities) options.setFacilities(facilities);
       const events = readJson<EventItem[]>(`${STORAGE_KEY}_events`);
