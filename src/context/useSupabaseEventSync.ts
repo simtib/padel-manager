@@ -2,6 +2,8 @@ import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import type { EventFormat, EventItem, EventStatus, EventType, Participant } from '../types';
 import type { Database } from '../types/database.types';
 import { createClient } from '../lib/supabase/client';
+import { reconcileRoster } from './eventRoster';
+import { isValidUuid } from './contextHelpers';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
@@ -25,6 +27,15 @@ const reconcileEvents = (rows: EventRow[], previous: EventItem[], participants: 
     const storedFormat = (row as EventRow & { format?: string | null }).format;
     const format: EventFormat = storedFormat === 'standard_3_sets' || storedFormat === 'americano' || storedFormat === 'custom'
       ? storedFormat : cached?.format || (type === 'normal_match' ? 'standard_3_sets' : 'custom');
+    const roster = reconcileRoster(participants.get(row.id) || [], cached?.participants);
+    let status = eventStatus(row.status);
+    if (roster.some((player) => !isValidUuid(player.id)) && (status === 'open' || status === 'full')) {
+      const confirmedCount = roster.filter((player) => player.status === 'confirmed').length;
+      status = confirmedCount >= row.max_players ? 'full' : 'open';
+      if (cached && ['teams_generated', 'ready', 'in_progress', 'knockout_stage', 'completed'].includes(cached.status)) {
+        status = cached.status;
+      }
+    }
 
     return {
       id: row.id,
@@ -44,11 +55,8 @@ const reconcileEvents = (rows: EventRow[], previous: EventItem[], participants: 
       maxTeams: row.max_players / 2,
       visibility: row.visibility === 'public' ? 'public' : 'private',
       playerGroupId: (row as EventRow & { player_group_id?: string | null }).player_group_id || undefined,
-      status: eventStatus(row.status),
-      participants: (participants.get(row.id) || []).map((participant) => ({
-        ...participant,
-        preferredPartnerId: cached?.participants.find((previous) => previous.id === participant.id)?.preferredPartnerId,
-      })),
+      status,
+      participants: roster,
       teams: cached?.teams || [],
       groups: cached?.groups || [],
       matches: cached?.matches || [],
