@@ -28,7 +28,11 @@ const GroupInviteModal = dynamic(() =>
 );
 
 function PadelAppContent() {
-  const { events, currentUser, facilities, playerGroups, isAuthenticated, isAppAdmin } = usePadel();
+  const { events, currentUser, facilities, playerGroups, isAuthenticated, isAppAdmin, planNotice, clearPlanNotice } = usePadel();
+  const isSuperAdmin = isAuthenticated && currentUser.role === 'super_admin';
+  useEffect(() => {
+    if (isSuperAdmin) window.location.replace('/admin');
+  }, [isSuperAdmin]);
 
   const [activeTab, setActiveTab] = useState<'games' | 'venues' | 'groups' | 'profile'>('games');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -128,10 +132,13 @@ function PadelAppContent() {
     return { upcomingEvents: upcoming, pastEvents: past };
   }, [filteredEvents]);
 
+  if (isSuperAdmin) return <p role="status" className="p-8 text-slate-400">Opening admin workspace…</p>;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Main Navigation Header */}
-       <Navbar
+       {planNotice && <div role="alert" className="fixed bottom-5 left-4 right-4 z-[100] mx-auto flex max-w-xl items-center justify-between gap-4 rounded-2xl border border-amber-500/40 bg-slate-900 p-4 text-sm text-amber-200 shadow-xl"><span>{planNotice}</span><button type="button" onClick={clearPlanNotice} aria-label="Dismiss plan message" className="p-2 hover:text-white transition-colors"><X className="w-4 h-4" /></button></div>}
+      <Navbar
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);

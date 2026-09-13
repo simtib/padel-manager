@@ -44,22 +44,24 @@ export const useVenueManager = ({ facilities, saveFacility, initialEditFacilityI
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!name.trim() || !address.trim()) return;
-    const saved = await saveFacility({
-      id: editingId || undefined,
-      name: name.trim(),
-      address: address.trim(),
-      city: city.trim() || 'Dubai',
-      country: 'United Arab Emirates',
-      googleMapsUrl: googleMapsUrl.trim(),
-      isFavorite,
-      courts: Array.from({ length: courtCount }, (_, index) => ({
-        id: `c_${editingId || 'new'}_${index + 1}`,
-        name: `Court ${index + 1}`,
-      })),
-    });
-    setIsEditing(false);
-    setEditingId(null);
-    onSaved?.(saved);
+    try {
+      const saved = await saveFacility({
+        id: editingId || undefined,
+        name: name.trim(),
+        address: address.trim(),
+        city: city.trim() || 'Dubai',
+        country: 'United Arab Emirates',
+        googleMapsUrl: googleMapsUrl.trim(),
+        isFavorite,
+        courts: Array.from({ length: courtCount }, (_, index) => ({
+          id: `c_${editingId || 'new'}_${index + 1}`,
+          name: `Court ${index + 1}`,
+        })),
+      });
+      setIsEditing(false);
+      setEditingId(null);
+      onSaved?.(saved);
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'Could not save this venue.'); }
   };
 
   const sortedFacilities = useMemo(() => [...facilities].sort((a, b) => {

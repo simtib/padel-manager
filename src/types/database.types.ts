@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -7,25 +7,33 @@
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
-      application_admins: {
-        Row: { user_id: string; created_at: string }
-        Insert: { user_id: string; created_at?: string }
-        Update: { user_id?: string; created_at?: string }
-        Relationships: [{
-          foreignKeyName: "application_admins_user_id_fkey"
-          columns: ["user_id"]
-          isOneToOne: true
-          referencedRelation: "profiles"
-          referencedColumns: ["id"]
-        }]
-      }
       courts: {
         Row: {
           court_number: number | null
@@ -86,6 +94,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
             referencedColumns: ["id"]
           },
           {
@@ -174,7 +189,21 @@ export type Database = {
             foreignKeyName: "event_participants_registered_by_fkey"
             columns: ["registered_by"]
             isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
             referencedColumns: ["id"]
           },
           {
@@ -193,11 +222,13 @@ export type Database = {
           event_date: string
           event_type: string
           facility_id: string | null
+          format: string | null
           id: string
           invite_code: string
           max_players: number
           name: string
           owner_id: string
+          player_group_id: string | null
           start_time: string
           status: string
           updated_at: string
@@ -209,11 +240,13 @@ export type Database = {
           event_date: string
           event_type: string
           facility_id?: string | null
+          format?: string | null
           id?: string
           invite_code: string
           max_players?: number
           name: string
           owner_id: string
+          player_group_id?: string | null
           start_time: string
           status?: string
           updated_at?: string
@@ -225,11 +258,13 @@ export type Database = {
           event_date?: string
           event_type?: string
           facility_id?: string | null
+          format?: string | null
           id?: string
           invite_code?: string
           max_players?: number
           name?: string
           owner_id?: string
+          player_group_id?: string | null
           start_time?: string
           status?: string
           updated_at?: string
@@ -247,7 +282,21 @@ export type Database = {
             foreignKeyName: "events_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_player_group_id_fkey"
+            columns: ["player_group_id"]
+            isOneToOne: false
+            referencedRelation: "player_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -291,6 +340,13 @@ export type Database = {
             foreignKeyName: "facilities_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facilities_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -298,7 +354,7 @@ export type Database = {
       }
       feedback: {
         Row: {
-          contact_consent: boolean | null
+          contact_consent: boolean
           created_at: string
           description: string
           id: string
@@ -310,7 +366,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          contact_consent?: boolean | null
+          contact_consent?: boolean
           created_at?: string
           description: string
           id?: string
@@ -322,7 +378,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          contact_consent?: boolean | null
+          contact_consent?: boolean
           created_at?: string
           description?: string
           id?: string
@@ -334,6 +390,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "feedback_user_id_fkey"
             columns: ["user_id"]
@@ -370,7 +433,21 @@ export type Database = {
             foreignKeyName: "guest_players_claimed_by_user_id_fkey"
             columns: ["claimed_by_user_id"]
             isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_players_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_players_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
             referencedColumns: ["id"]
           },
           {
@@ -604,6 +681,13 @@ export type Database = {
             foreignKeyName: "player_group_members_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_group_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -639,6 +723,13 @@ export type Database = {
             foreignKeyName: "player_groups_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_groups_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -654,6 +745,8 @@ export type Database = {
           id: string
           last_name: string
           phone: string | null
+          plan: Database["public"]["Enums"]["app_plan"]
+          role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
@@ -665,6 +758,8 @@ export type Database = {
           id: string
           last_name: string
           phone?: string | null
+          plan?: Database["public"]["Enums"]["app_plan"]
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
@@ -676,9 +771,129 @@ export type Database = {
           id?: string
           last_name?: string
           phone?: string | null
+          plan?: Database["public"]["Enums"]["app_plan"]
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Relationships: []
+      }
+      role_changes: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          id: string
+          new_role: Database["public"]["Enums"]["app_role"]
+          old_role: Database["public"]["Enums"]["app_role"]
+          user_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          new_role: Database["public"]["Enums"]["app_role"]
+          old_role: Database["public"]["Enums"]["app_role"]
+          user_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          new_role?: Database["public"]["Enums"]["app_role"]
+          old_role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_changes_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_changes_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_changes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_changes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_cases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string
+          status?: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_cases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "player_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_members: {
         Row: {
@@ -859,12 +1074,90 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      player_directory: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      is_app_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       can_view_event: { Args: { target_event_id: string }; Returns: boolean }
+      check_plan_action: {
+        Args: { action_name: string; waiting?: boolean }
+        Returns: undefined
+      }
+      create_event: {
+        Args: {
+          co_admin_ids?: string[]
+          court_ids?: string[]
+          event_date_value: string
+          event_description: string
+          event_name: string
+          event_type_value: string
+          facility_id_value?: string
+          max_players_value?: number
+          player_group_id_value?: string
+          rules_value?: Json
+          start_time_value: string
+          visibility_value?: string
+        }
+        Returns: string
+      }
+      create_event_base: {
+        Args: {
+          co_admin_ids?: string[]
+          court_ids?: string[]
+          event_date_value: string
+          event_description: string
+          event_name: string
+          event_type_value: string
+          facility_id_value?: string
+          max_players_value?: number
+          rules_value?: Json
+          start_time_value: string
+          visibility_value?: string
+        }
+        Returns: string
+      }
+      create_player_group: {
+        Args: {
+          group_description?: string
+          group_name: string
+          member_ids?: string[]
+        }
+        Returns: string
+      }
+      delete_event: { Args: { target_event_id: string }; Returns: boolean }
+      delete_player_group: {
+        Args: { target_group_id: string }
+        Returns: boolean
+      }
+      is_app_admin: { Args: never; Returns: boolean }
       is_event_admin: { Args: { target_event_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
+      plan_is_pro: { Args: { target_user: string }; Returns: boolean }
       record_match_score: {
         Args: {
           score_a: number
@@ -880,9 +1173,30 @@ export type Database = {
         Args: { target_event_id: string; target_user_id: string }
         Returns: Json
       }
+      set_user_role: {
+        Args: {
+          new_role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: undefined
+      }
+      update_event_settings: {
+        Args: {
+          event_date_value: string
+          event_description: string
+          event_name: string
+          format_value: string
+          max_players_value: number
+          start_time_value: string
+          target_event_id: string
+          visibility_value: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_plan: "free" | "pro"
+      app_role: "user" | "admin" | "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -898,12 +1212,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -927,11 +1241,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -952,11 +1266,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -977,11 +1291,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -994,11 +1308,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1008,7 +1322,13 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  graphql_public: {
     Enums: {},
+  },
+  public: {
+    Enums: {
+      app_plan: ["free", "pro"],
+      app_role: ["user", "admin", "super_admin"],
+    },
   },
 } as const

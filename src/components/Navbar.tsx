@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { usePadel } from '../context/PadelContext';
 import {
   Trophy,
@@ -234,7 +235,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <p className="font-semibold text-white">{notif.title}</p>
                           <p className="mt-0.5 text-slate-300 text-[11px]">{notif.message}</p>
                           <span className="text-[10px] text-slate-500 mt-1 block">
-                            {new Date(notif.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(notif.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}
                           </span>
                         </div>
                       ))}
@@ -296,6 +297,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2">
                       <MessageCircle className="w-3.5 h-3.5" /> My Feedback
                     </button>
+                    {isAppAdmin && <Link href="/admin" className="block px-3 py-2 rounded-xl text-xs font-medium text-emerald-300 hover:bg-slate-800">Admin area</Link>}
                     {isAppAdmin && <button onClick={() => { onOpenManageFeedback(); setShowProfileMenu(false); }}
                       className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2">
                       <MessageCircle className="w-3.5 h-3.5" /> Manage Feedback

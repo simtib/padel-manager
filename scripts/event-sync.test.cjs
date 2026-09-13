@@ -4,13 +4,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
+require('tsx/cjs');
+const { createHash } = require('node:crypto');
+const playerId = (label) => {
+  const hex = createHash('sha256').update(label).digest('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+};
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function mount() {
   let cleanup;
   let poll;
-  let state = [{ id: 'event', participants: [{ id: 'stale' }], teams: [] }];
+  let state = [{ id: 'event', participants: [{ id: playerId('stale') }], teams: [] }];
   let rows = [];
   let error = null;
   const changes = {};
@@ -46,6 +52,8 @@ function mount() {
     require(name) {
       if (name === 'react') return { useEffect: (effect) => { cleanup = effect(); } };
       if (name === '../lib/supabase/client') return { createClient: () => client };
+      if (name === './eventRoster') return require('../src/context/eventRoster.ts');
+      if (name === './contextHelpers') return require('../src/context/contextHelpers.ts');
       throw new Error(`Unexpected import: ${name}`);
     },
     console: { error() {} },
@@ -57,7 +65,7 @@ function mount() {
 }
 
 const registration = (id, status = 'confirmed') => ({
-  id: `registration-${id}`, event_id: 'event', user_id: id, guest_player_id: null,
+  id: `registration-${id}`, event_id: 'event', user_id: playerId(id), guest_player_id: null,
   registration_status: status, joined_at: '2026-09-08T00:00:00Z', profiles: { display_name: `Player ${id}` },
 });
 
@@ -66,7 +74,7 @@ test('admin roster loads registrations from another browser and removes stale ca
   app.rows = [registration('new-player'), registration('waiting', 'waiting_list')];
   await flush();
   assert.equal(app.state[0].participants.length, 2);
-  assert.equal(app.state[0].participants[0].id, 'new-player');
+  assert.equal(app.state[0].participants[0].id, playerId('new-player'));
   assert.equal(app.state[0].participants[0].displayName, 'Player new-player');
   assert.equal(app.state[0].participants[1].waitingListPosition, 1);
   app.rows = [];

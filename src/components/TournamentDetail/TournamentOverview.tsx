@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { EventItem } from '../../types';
 import { usePadel } from '../../context/PadelContext';
+import { joinRestriction } from '../../context/planEntitlements';
 import { ManageVenuesModal } from '../ManageVenuesModal';
 import {
   Trophy,
@@ -46,7 +47,7 @@ export const TournamentOverview: React.FC<TournamentOverviewProps> = ({
   onGenerateSchedule,
   onConfirmKnockouts,
 }) => {
-  const { currentUser, joinEvent, leaveEvent, facilities, toggleFavoriteFacility, allPlayers } = usePadel();
+  const { currentUser, events, joinEvent, leaveEvent, facilities, toggleFavoriteFacility, allPlayers } = usePadel();
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const [showManageVenuesModal, setShowManageVenuesModal] = useState(false);
 
@@ -61,6 +62,7 @@ export const TournamentOverview: React.FC<TournamentOverviewProps> = ({
   const isParticipant = !!myParticipant;
   const isWaitingList = myParticipant?.status === 'waiting_list';
   const isFull = confirmedCount >= event.maxPlayers;
+  const restriction = joinRestriction(currentUser, events, event);
 
   return (
     <div className="space-y-6">
@@ -105,7 +107,7 @@ export const TournamentOverview: React.FC<TournamentOverviewProps> = ({
 
               <span className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl">
                 <Clock className="w-4 h-4 text-emerald-400" />
-                {event.startTime}
+                {event.startTime.slice(0, 5)}
               </span>
 
               <span className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl">
@@ -279,36 +281,41 @@ export const TournamentOverview: React.FC<TournamentOverviewProps> = ({
             </div>
           )}
 
-          <button
-            onClick={async () => {
-              if (isParticipant) {
-                leaveEvent(event.id);
-              } else {
-                await joinEvent(event.id, selectedPartnerId || undefined);
-              }
-            }}
-            className={`w-full sm:w-auto px-6 py-3 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
-              isParticipant
-                ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                : isFull
-                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/10'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
-            }`}
-          >
-            {isParticipant ? (
-              <>
-                <LogOut className="w-4 h-4" /> Withdraw Registration
-              </>
-            ) : isFull ? (
-              <>
-                <Clock3 className="w-4 h-4" /> Join Waiting List
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4" /> Join Game Now
-              </>
+          <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
+            <button
+              onClick={async () => {
+                if (isParticipant) {
+                  leaveEvent(event.id);
+                } else {
+                  await joinEvent(event.id, selectedPartnerId || undefined);
+                }
+              }}
+              className={`w-full sm:w-auto px-6 py-3 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                isParticipant
+                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                  : isFull
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/10'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
+              }`}
+            >
+              {isParticipant ? (
+                <>
+                  <LogOut className="w-4 h-4" /> Withdraw Registration
+                </>
+              ) : isFull ? (
+                <>
+                  <Clock3 className="w-4 h-4" /> Join Waiting List
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" /> Join Game Now
+                </>
+              )}
+            </button>
+            {!isParticipant && restriction && (
+              <span className="text-[11px] text-amber-300 font-medium">{restriction}</span>
             )}
-          </button>
+          </div>
         </div>
       </div>
 

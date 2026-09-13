@@ -101,7 +101,7 @@ export const useSupabaseEventSync = (
         for (let offset = 0; active; offset += pageSize) {
           const { data: registrations, error: registrationError } = await supabase
             .from('event_participants')
-            .select('event_id, id, user_id, guest_player_id, registration_status, joined_at, profiles!event_participants_user_id_fkey(display_name), guest_players!event_participants_guest_player_id_fkey(name)')
+            .select('event_id, id, user_id, guest_player_id, registration_status, joined_at, profiles:player_directory!event_participants_user_id_fkey(display_name), guest_players!event_participants_guest_player_id_fkey(name)')
             .in('registration_status', ['confirmed', 'waiting_list'])
             .order('joined_at')
             .order('id')

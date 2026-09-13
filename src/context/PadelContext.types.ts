@@ -10,6 +10,8 @@ export interface PadelContextValue {
   clearNotifications: () => void;
   partnerRequests: PartnerRequest[];
   isAppAdmin: boolean;
+  planNotice: string;
+  clearPlanNotice: () => void;
   submitFeedback: (data: { type: FeedbackItem['type']; title: string; description: string; pageRoute?: string; contactConsent: boolean }) => Promise<{ success: boolean; error?: string }>;
   fetchFeedback: (scope: 'mine' | 'all') => Promise<FeedbackItem[]>;
   updateFeedbackStatus: (feedbackId: string, status: FeedbackItem['status']) => Promise<boolean>;
@@ -28,8 +30,8 @@ export interface PadelContextValue {
   joinEvent: (eventId: string, preferredPartnerId?: string) => Promise<{ success: boolean; status?: 'confirmed' | 'waiting_list' }>;
   leaveEvent: (eventId: string, targetUserId?: string) => void;
   removeParticipant: (eventId: string, targetUserId: string) => void;
-  addRegisteredPlayerToEvent: (eventId: string, userId: string) => void;
-  addGuestPlayer: (eventId: string, guestName: string) => void;
+  addRegisteredPlayerToEvent: (eventId: string, userId: string) => Promise<boolean>;
+  addGuestPlayer: (eventId: string, guestName: string) => Promise<boolean>;
   removeGuestPlayer: (eventId: string, guestId: string) => void;
   sendPartnerRequest: (eventId: string, toUserId: string) => void;
   respondToPartnerRequest: (requestId: string, accept: boolean) => void;
@@ -53,5 +55,5 @@ export interface PadelContextValue {
   toggleFavoriteFacility: (facilityId: string) => void;
   deleteFacility: (facilityId: string) => void;
   resetDemoData: () => void;
-  updateProfile: (data: Partial<PlayerProfile>) => void;
+  updateProfile: (data: Pick<PlayerProfile, 'displayName' | 'mobileNumber'>) => Promise<void>;
 }

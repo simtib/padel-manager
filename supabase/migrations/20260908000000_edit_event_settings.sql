@@ -79,15 +79,17 @@ BEGIN
   IF max_players_value <= 0 THEN RAISE EXCEPTION 'Maximum players must be positive'; END IF;
 
   SELECT * INTO auth_user FROM auth.users WHERE id = auth.uid();
-  INSERT INTO public.profiles(id, first_name, last_name, display_name, email, avatar_url)
-  VALUES (
-    auth_user.id,
-    COALESCE(NULLIF(auth_user.raw_user_meta_data->>'first_name', ''), 'Player'),
-    COALESCE(auth_user.raw_user_meta_data->>'last_name', ''),
-    COALESCE(NULLIF(auth_user.raw_user_meta_data->>'display_name', ''), auth_user.email, 'Player'),
-    COALESCE(auth_user.email, ''),
-    auth_user.raw_user_meta_data->>'avatar_url'
-  ) ON CONFLICT (id) DO NOTHING;
+  IF auth_user.id IS NOT NULL THEN
+    INSERT INTO public.profiles(id, first_name, last_name, display_name, email, avatar_url)
+    VALUES (
+      auth_user.id,
+      COALESCE(NULLIF(auth_user.raw_user_meta_data->>'first_name', ''), 'Player'),
+      COALESCE(auth_user.raw_user_meta_data->>'last_name', ''),
+      COALESCE(NULLIF(auth_user.raw_user_meta_data->>'display_name', ''), auth_user.email, 'Player'),
+      COALESCE(auth_user.email, ''),
+      auth_user.raw_user_meta_data->>'avatar_url'
+    ) ON CONFLICT (id) DO NOTHING;
+  END IF;
 
   IF facility_id_value IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.facilities WHERE id = facility_id_value

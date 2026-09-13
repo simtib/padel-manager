@@ -37,6 +37,18 @@ export async function updateSession(request: NextRequest) {
   const protectedPaths = ['/dashboard', '/games', '/tournaments', '/player-groups', '/profile'];
   const isProtected = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path));
 
+  if (user && (isProtected || ['/', '/login', '/signup'].includes(request.nextUrl.pathname) || request.nextUrl.pathname.startsWith('/join/'))) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role === 'super_admin') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin';
+      url.search = '';
+      const response = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+      return response;
+    }
+  }
+
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

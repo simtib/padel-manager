@@ -1,3 +1,4 @@
+import { PlayerProfileButton } from './PlayerProfileButton';
 import React, { useState } from 'react';
 import { EventItem } from '../types';
 import { usePadel } from '../context/PadelContext';
@@ -9,7 +10,7 @@ interface AdminAddPlayerModalProps {
 }
 
 export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event, onClose }) => {
-  const { allPlayers, addRegisteredPlayerToEvent, addGuestPlayer } = usePadel();
+  const { allPlayers, currentUser, planNotice, addRegisteredPlayerToEvent, addGuestPlayer } = usePadel();
 
   const [activeTab, setActiveTab] = useState<'community' | 'guest'>('community');
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,16 +29,16 @@ export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event,
     return matchesSearch;
   });
 
-  const handleAddCommunityPlayer = (userId: string, name: string) => {
-    addRegisteredPlayerToEvent(event.id, userId);
+  const handleAddCommunityPlayer = async (userId: string, name: string) => {
+    if (!await addRegisteredPlayerToEvent(event.id, userId)) return;
     setAddedPlayerIds((prev) => [...prev, userId]);
     showToast(`Added ${name} to event!`);
   };
 
-  const handleAddGuest = (e: React.FormEvent) => {
+  const handleAddGuest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestName.trim()) return;
-    addGuestPlayer(event.id, guestName.trim());
+    if (!await addGuestPlayer(event.id, guestName.trim())) return;
     showToast(`Added guest "${guestName.trim()}" to event!`);
     setGuestName('');
   };
@@ -133,9 +134,7 @@ export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event,
                       className="p-3 bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 rounded-2xl flex items-center justify-between gap-3 text-xs transition-all"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold flex items-center justify-center shrink-0">
-                          {player.displayName.charAt(0).toUpperCase()}
-                        </div>
+                        <PlayerProfileButton playerId={player.id} displayName={player.displayName} />
                         <div className="truncate">
                           <p className="font-bold text-white truncate">{player.displayName}</p>
                           <p className="text-[10px] text-slate-400 truncate">
@@ -167,6 +166,7 @@ export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event,
         {/* Tab 2: Custom Guest Player */}
         {activeTab === 'guest' && (
           <form onSubmit={handleAddGuest} className="space-y-4">
+            {currentUser.plan !== 'pro' && <p className="text-sm text-amber-300">Upgrade to Pro to add guest players.</p>}
             <div>
               <label className="text-xs font-bold text-slate-300 block mb-2">Guest Display Name</label>
               <input
@@ -194,7 +194,7 @@ export const AdminAddPlayerModal: React.FC<AdminAddPlayerModalProps> = ({ event,
               </button>
               <button
                 type="submit"
-                disabled={!guestName.trim()}
+                disabled={!guestName.trim() || currentUser.plan !== 'pro'}
                 className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5"
               >
                 <UserPlus className="w-4 h-4" /> Add Guest Player

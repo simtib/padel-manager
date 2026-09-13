@@ -1,6 +1,7 @@
 import React from 'react';
 import { EventItem } from '../types';
 import { usePadel } from '../context/PadelContext';
+import { joinRestriction } from '../context/planEntitlements';
 import { Trophy, Calendar, MapPin, Users, ChevronRight, ShieldCheck, Clock, UserPlus, CheckCircle, LogOut, Clock3, Map, ExternalLink, Star } from 'lucide-react';
 
 interface EventCardProps {
@@ -10,7 +11,8 @@ interface EventCardProps {
 }
 
 export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, currentUserId }) => {
-  const { joinEvent, leaveEvent, facilities } = usePadel();
+  const { joinEvent, leaveEvent, facilities, currentUser, events } = usePadel();
+  const restriction = joinRestriction(currentUser, events, event);
   const confirmedCount = event.participants.filter((p) => p.status === 'confirmed').length;
   const isOwner = event.ownerId === currentUserId;
   const isCoAdmin = event.coAdminIds.includes(currentUserId);
@@ -113,7 +115,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, currentUs
               })}
             </span>
             <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-2" />
-            <span>{event.startTime}</span>
+            <span>{event.startTime.slice(0, 5)}</span>
           </div>
 
           <div className="flex items-center justify-between gap-2">
@@ -166,6 +168,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, currentUs
         </div>
       </div>
 
+      {restriction && <p className="mt-3 text-xs text-amber-300">{restriction}</p>}
       {/* Join Action Bar */}
       <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
         <button

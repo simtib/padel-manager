@@ -4,7 +4,7 @@ import { MapPin, Star, Plus, Edit2, Trash2, ExternalLink, Check, Building2, Map 
 import { useVenueManager } from './venues/useVenueManager';
 
 export const VenuesPage: React.FC = () => {
-  const { facilities, saveFacility, toggleFavoriteFacility, deleteFacility } = usePadel();
+  const { facilities, saveFacility, toggleFavoriteFacility, deleteFacility, isAppAdmin } = usePadel();
 
   const { isEditing, setIsEditing, editingId, name, setName, address, setAddress,
     city, setCity, googleMapsUrl, setGoogleMapsUrl, isFavorite, setIsFavorite,
@@ -24,7 +24,7 @@ export const VenuesPage: React.FC = () => {
           </p>
         </div>
 
-        {!isEditing && (
+        {!isEditing && isAppAdmin && (
           <button
             onClick={handleStartCreate}
             className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-3 px-5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 self-start sm:self-auto"
@@ -34,7 +34,7 @@ export const VenuesPage: React.FC = () => {
         )}
       </div>
 
-      {isEditing ? (
+      {isEditing && isAppAdmin ? (
         <form onSubmit={handleSubmit} className="space-y-5 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <h3 className="font-bold text-white text-sm flex items-center gap-2 font-display">
@@ -245,13 +245,14 @@ export const VenuesPage: React.FC = () => {
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <button
                       onClick={() => handleStartEdit(fac)}
+                      hidden={!isAppAdmin}
                       className="p-2 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-xl transition-colors"
                       title="Edit venue & map link"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
 
-                    {facilities.length > 1 && (
+                    {isAppAdmin && facilities.length > 1 && (
                       <button
                         onClick={() => {
                           if (window.confirm(`Delete "${fac.name}" from saved venues?`)) {

@@ -23,10 +23,10 @@ try {
   }
   const [player, admin] = accounts;
   assert.equal(checked(await player.api.rpc('is_app_admin')), false, 'User metadata must not grant admin.');
-  assert.ok((await player.api.from('application_admins').insert({ user_id: player.id })).error, 'Self-promotion must fail.');
-  checked(await service.from('application_admins').insert({ user_id: admin.id }));
+  assert.ok((await player.api.from('profiles').update({ role: 'admin' }).eq('id', player.id)).error, 'Self-promotion must fail.');
+  checked(await service.from('profiles').update({ role: 'admin' }).eq('id', admin.id));
   assert.equal(checked(await admin.api.rpc('is_app_admin')), true);
-  assert.equal(checked(await player.api.from('application_admins').select('*')).length, 0);
+  assert.equal(checked(await player.api.from('profiles').select('id').eq('id', admin.id)).length, 0);
 
   const payload = { user_id: player.id, type: 'suggestion', title: 'Synthetic feedback test', description: 'Test only', status: 'new' };
   const submitted = checked(await player.api.from('feedback').insert(payload).select('*').single());
@@ -40,7 +40,7 @@ try {
   checked(await admin.api.from('feedback').update({ status: 'reviewing' }).eq('id', submitted.id).select('id').single());
   assert.equal(checked(await player.api.from('feedback').select('status').eq('id', submitted.id).single()).status, 'reviewing');
   assert.ok((await admin.api.from('feedback').update({ description: 'Overwrite' }).eq('id', submitted.id)).error, 'Admins may change status, not submission content.');
-  checked(await service.from('application_admins').delete().eq('user_id', admin.id));
+  checked(await service.from('profiles').update({ role: 'user' }).eq('id', admin.id));
   assert.equal(checked(await admin.api.rpc('is_app_admin')), false);
   assert.equal(checked(await admin.api.from('feedback').select('id').eq('id', submitted.id)).length, 0);
   const anonymous = client();

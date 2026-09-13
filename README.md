@@ -126,7 +126,8 @@ disabled; if enabled later, their provider callback belongs to Supabase at
 There is no separate application CORS allowlist to change. Production URLs remain
 environment-specific, and `npm run start` retains the hosting environment's port.
 
-The seed creates one fictional club and two courts, with no shared user passwords.
+The seed creates one fictional club, eight courts, and a confirmed local-only super
+admin (`superadmin@example.test`, password `LocalPadel-Only-2026!`).
 Create accounts, groups, and events through the app. Existing client-side demo
 and cached state is preserved; use a fresh browser profile when switching from
 an old cloud-backed localhost session to avoid displaying cached cloud data.
@@ -306,19 +307,85 @@ before the first submission. Players see only their own submissions and statuses
 This is a separate role from organizing an event. Administrators can read all
 feedback and set its status to New, Reviewing, Planned, Done, or Rejected; they
 cannot overwrite the author's submission text. Database permissions enforce these
-rules independently of the UI. No account receives this role automatically.
+rules independently of the UI. New signups always receive the `user` role.
 
 Apply pending migrations to the running **local** database with
-`npx --no-install supabase migration up --local`. To assign a local test admin,
-open local Studio at `http://localhost:54323`, find the test user's UUID in
-`public.profiles`, and insert that UUID into `public.application_admins.user_id`.
-Reload the application after assigning or removing the role. Removing the row
-revokes moderation access. A local reset removes these manual role assignments.
+`npx --no-install supabase migration up --local`. Sign in as the seeded local
+super admin and open `/admin` → Users to assign or remove roles.
+A local reset removes manual role assignments and restores the seeded account.
 Do not perform this setup against the existing Cloud project as part of local
 development; its schema and permissions remain unchanged.
 
 Run `node scripts/verify-feedback.mjs` with local Supabase running to check feedback
 ownership, moderation permissions, role revocation, and rejected self-promotion.
 It creates synthetic local accounts and removes them after the checks.
+
+### Application roles and administration
+
+`profiles.role` is a non-null enum: `user`, `admin`, or `super_admin`. The role
+migration backfills the old feedback admin list to `admin` and removes
+`application_admins` so it cannot remain an alternative privilege source.
+The migration itself creates no privileged accounts. The test super admin is
+created only by `supabase/seed.sql`, for the local Docker environment.
+
+| Capability | user | admin | super_admin |
+| --- | --- | --- | --- |
+| Games, player directory, club browsing, own profile and feedback | Yes | Yes | Yes |
+| Read full user profiles and edit names/phone | No | Yes | Yes |
+| Manage clubs and courts | No | Yes | Yes |
+| Read all feedback and moderate its status | No | Yes | Yes |
+| Create and update internal support cases | No | Yes | Yes |
+| Assign/revoke any application role and read role history | No | No | Yes |
+
+The protected `/admin` page redirects unauthenticated visitors to `/login` and
+normal users to `/dashboard`. Its `/api/admin` endpoints independently return
+401/403 and recheck the caller's current database role on every request. Writes
+validate input and origin, and use the caller's session, never a service-role
+client. RLS and column privileges also enforce permissions on direct Supabase
+requests. Existing sessions lose access when their database role is revoked.
+
+Role updates use the checked `set_user_role` RPC and produce immutable audit
+records. Neither normal profile updates, inserts/upserts, nor editable Auth
+metadata can set a role. Super admins cannot change their own role; another
+super admin must do that, preventing the last super admin from demoting themself.
+Event ownership/co-admin membership never grants application administration.
+
+Full profile/contact information is restricted to the owner and app admins. The
+read-only `player_directory` view intentionally exposes just player names,
+avatars, IDs and creation dates to signed-in players for game/group selection.
+Internal support cases are separate from player-visible feedback. User management
+edits profile details; it does not change Auth passwords, email addresses or
+delete Auth accounts.
+
+Local setup and verification (no Cloud commands):
+
+```powershell
+npm run supabase:start
+npm run supabase:reset
+npm run dev:local
+# In a second terminal:
+node scripts/verify-roles.mjs
+node scripts/verify-feedback.mjs
+node scripts/verify-local.mjs
+node --test scripts/supabase-local.test.mjs scripts/event-sync.test.cjs
+npm run lint
+npm run build:local
+```
+
+Open `http://localhost:3001/login` with the local super-admin credentials above,
+then visit `http://localhost:3001/admin`. Create additional local players through
+signup (email captured at `http://localhost:54324`) and assign roles in Users.
+The role integration suite creates temporary users/admins, tests all three roles
+against RLS and real HTTP endpoints, verifies privilege escalation and revocation,
+then cleans up its synthetic records. It derives credentials only from local CLI
+status and refuses a non-loopback Supabase URL. Never deploy the local seed or
+test credentials to Cloud.
+
+Local validation on 2026-09-12: `npm run supabase:reset` successfully replayed
+all migrations and loaded the super-admin seed. `verify-roles.mjs` passed for
+anonymous access and all three roles, including direct RLS checks, protected
+HTTP routes, rejected self-promotion, role history, and existing-session
+revocation. Feedback and normal authentication/game integration checks also
+passed. All testing used the local Docker stack; no Cloud changes were made.
 
 ---

@@ -65,13 +65,16 @@ try {
     assert.equal(new URL(response.headers.get('location')).origin, appUrl.origin);
     assert.ok(response.headers.get('set-cookie'), 'SSR confirmation must set session cookies.');
     checked(await client.auth.signInWithPassword({ email, password }));
+    // This suite exercises unrestricted legacy flows; Free boundaries have a
+    // dedicated suite in verify-plans.mjs.
+    checked(await admin.from('profiles').update({ plan: 'pro' }).eq('id', signup.user.id));
     assert.equal(checked(await client.from('profiles').select('id').eq('id', signup.user.id).single()).id, signup.user.id);
     clients.push(client);
   }
   const [owner, player] = clients;
   const facilities = checked(await owner.from('facilities').select('id').eq('id', '10000000-0000-4000-8000-000000000001'));
   assert.equal(facilities.length, 1, 'Synthetic seed club must exist.');
-  assert.equal(checked(await owner.from('courts').select('id').eq('facility_id', facilities[0].id)).length, 2);
+  assert.equal(checked(await owner.from('courts').select('id').eq('facility_id', facilities[0].id)).length, 8);
   const eventId = checked(await owner.rpc('create_event', {
     event_name: 'Local integration test', event_description: 'Synthetic test, removed after verification',
     event_type_value: 'normal_match', event_date_value: '2026-10-01', start_time_value: '18:00',

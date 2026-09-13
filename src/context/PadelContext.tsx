@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { createContext, useContext, useState } from 'react';
 import {
@@ -37,6 +37,8 @@ import { useSupabaseAuthSync } from './useSupabaseAuthSync';
 import { useSupabaseEventSync } from './useSupabaseEventSync';
 import { useFeedback } from './useFeedback';
 import { useSupabasePlayerSync } from './useSupabasePlayerSync';
+import { organizeRestriction, joinRestriction, upgradeMessages } from './planEntitlements';
+import { useSupabaseFacilitySync } from './useSupabaseFacilitySync';
 
 // The app's seed/localStorage data uses human-readable string IDs (e.g. 'fac_1',
 // 'c1'), but the Supabase schema stores facilities/courts/events ids as UUIDs.
@@ -54,6 +56,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>(SEED_PLAYERS);
   const [currentUser, setCurrentUser] = useState<PlayerProfile>(SEED_PLAYERS[0]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [planNotice, setPlanNotice] = useState('');
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
@@ -68,6 +71,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useSupabaseAuthSync({ setIsAuthenticated, setCurrentUser, setAllPlayers });
   useSupabasePlayerSync(isAuthenticated, setAllPlayers);
   useSupabaseEventSync(isAuthenticated, setEvents);
+  useSupabaseFacilitySync(isAuthenticated, setFacilities);
 
   const reportOperationError = (title: string, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error || 'Unexpected error');
@@ -114,6 +118,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (authData.session && authData.user) {
         await ensureProfile(supabase, authData.user);
         const newPlayer: PlayerProfile = {
+          role: 'user', plan: 'free',
           id: authData.user.id,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -245,6 +250,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const registerUser = (firstName: string, lastName: string, email: string, mobile?: string) => {
     const newPlayer: PlayerProfile = {
+      role: 'user', plan: 'free',
       id: `usr_${Date.now()}`,
       firstName,
       lastName,
@@ -267,7 +273,14 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentUser(newPlayer);
   };
 
-  const updateProfile = (data: Partial<PlayerProfile>) => {
+  const updateProfile = async (data: Pick<PlayerProfile, 'displayName' | 'mobileNumber'>) => {
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('Please sign in to edit your profile.');
+    const { error } = await supabase.from('profiles').update({
+      display_name: data.displayName.trim(), phone: data.mobileNumber?.trim() || null,
+    }).eq('id', user.id).select('id').single();
+    if (error) throw new Error(error.message);
     setCurrentUser((prev) => {
       const updated = { ...prev, ...data };
       setAllPlayers((players) => players.map((p) => (p.id === prev.id ? updated : p)));
@@ -276,6 +289,8 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const createEvent = async (newEventData: Partial<EventItem>): Promise<string> => {
+    const restriction = organizeRestriction(currentUser, events);
+    if (restriction) throw new Error(restriction);
     const playerGroup = (newEventData.visibility || 'private') === 'private'
       ? playerGroups.find((group) => group.id === newEventData.playerGroupId && (group.ownerId === currentUser.id || group.memberIds.includes(currentUser.id)))
       : undefined;
@@ -290,6 +305,8 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const { data: { session } } = await sb.auth.getSession();
       const authUid = session?.user?.id;
+
+      if (!authUid) throw new Error('Please sign in before creating a game.');
 
       if (authUid) {
         creatorId = authUid;
@@ -421,6 +438,10 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const joinEvent = async (eventId: string, preferredPartnerId?: string): Promise<{ success: boolean; status?: 'confirmed' | 'waiting_list' }> => {
+    const target = events.find((event) => event.id === eventId);
+    if (!target) return { success: false };
+    const restriction = joinRestriction(currentUser, events, target);
+    if (restriction) { setPlanNotice(restriction); return { success: false }; }
     let resultStatus: 'confirmed' | 'waiting_list' = 'confirmed';
     let usedServerStatus = false;
     let supabaseError: string | undefined;
@@ -467,7 +488,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       reportOperationError('Could not join event', err);
     }
 
-    if (supabaseError) return { success: false };
+    if (supabaseError) { setPlanNotice(supabaseError); return { success: false }; }
 
     setEvents((prev) =>
       prev.map((event) => {
@@ -721,9 +742,20 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     removeParticipant(eventId, targetUserId || currentUser.id);
   };
 
-  const addRegisteredPlayerToEvent = (eventId: string, userId: string) => {
+  const addRegisteredPlayerToEvent = async (eventId: string, userId: string): Promise<boolean> => {
     const targetUser = allPlayers.find((p) => p.id === userId);
-    if (!targetUser) return;
+    if (!targetUser) return false;
+    const targetEvent = events.find((event) => event.id === eventId);
+    if (!targetEvent) return false;
+    const waiting = targetEvent.participants.filter((p) => p.status === 'confirmed').length >= targetEvent.maxPlayers;
+    if (waiting) {
+      const { error } = await createClient().rpc('check_plan_action', { action_name: 'waitlist' });
+      if (error) { setPlanNotice(error.message); return false; }
+    }
+    if (isValidUuid(eventId) && isValidUuid(userId)) {
+      const { error } = await createClient().from('event_participants').insert({event_id: eventId, user_id: userId, registered_by: currentUser.id, registration_status: waiting ? 'waiting_list' : 'confirmed'});
+      if (error) { setPlanNotice(error.message); return false; }
+    }
 
     setEvents((prev) =>
       prev.map((event) => {
@@ -797,9 +829,12 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
       })
     );
+    return true;
   };
 
-  const addGuestPlayer = (eventId: string, guestName: string) => {
+  const addGuestPlayer = async (eventId: string, guestName: string): Promise<boolean> => {
+    const { error } = await createClient().rpc('check_plan_action', { action_name: 'guest' });
+    if (error) { setPlanNotice(error.message); return false; }
     const guestId = `gst_${Date.now()}`;
     setEvents((prev) =>
       prev.map((event) => {
@@ -824,6 +859,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
       })
     );
+    return true;
   };
 
   const removeGuestPlayer = (eventId: string, guestId: string) => {
@@ -1404,6 +1440,8 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const saveFacility = async (data: Partial<Facility> & { name: string; address: string; city: string }): Promise<Facility> => {
+    const { data: allowed, error: roleError } = await createClient().rpc('is_app_admin');
+    if (roleError || !allowed) throw new Error('Only application admins can manage clubs.');
     let resultFacility: Facility | null = null;
     let supabaseError: string | undefined;
 
@@ -1488,26 +1526,7 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     if (!resultFacility) {
-      if (supabaseError) {
-        console.warn('Falling back to local-only facility due to Supabase error:', supabaseError);
-      }
-      const newId = data.id || `fac_${Date.now()}`;
-      const defaultCourts = data.courts && data.courts.length > 0 ? data.courts : [
-        { id: `c_${Date.now()}_1`, name: 'Court 1' },
-        { id: `c_${Date.now()}_2`, name: 'Court 2' },
-        { id: `c_${Date.now()}_3`, name: 'Court 3' },
-        { id: `c_${Date.now()}_4`, name: 'Court 4' },
-      ];
-      resultFacility = {
-        id: newId,
-        name: data.name,
-        address: data.address,
-        city: data.city || 'Dubai',
-        country: data.country || 'United Arab Emirates',
-        googleMapsUrl: data.googleMapsUrl || '',
-        isFavorite: data.isFavorite ?? true,
-        courts: defaultCourts,
-      };
+      throw new Error(supabaseError || 'The club could not be saved.');
     }
     return resultFacility;
   };
@@ -1518,8 +1537,13 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
-  const deleteFacility = (facilityId: string) => {
-    setFacilities((prev) => prev.filter((f) => f.id !== facilityId));
+  const deleteFacility = async (facilityId: string) => {
+    try {
+      const response = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'club.delete', id: facilityId }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not delete club.');
+      setFacilities((prev) => prev.filter((f) => f.id !== facilityId));
+    } catch (error) { reportOperationError('Could not delete club', error); }
   };
 
   const resetDemoData = () => {
@@ -1545,6 +1569,8 @@ export const PadelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearNotifications,
          partnerRequests,
           isAppAdmin,
+          planNotice,
+          clearPlanNotice: () => setPlanNotice(''),
           submitFeedback,
           fetchFeedback,
           updateFeedbackStatus,

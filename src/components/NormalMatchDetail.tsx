@@ -1,6 +1,8 @@
+import { PlayerProfileButton } from './PlayerProfileButton';
 import React, { useState } from 'react';
 import { EventItem, Team, TeamMember } from '../types';
 import { usePadel } from '../context/PadelContext';
+import { joinRestriction } from '../context/planEntitlements';
 import { ScoreEntryModal } from './ScoreEntryModal';
 import { ManageVenuesModal } from './ManageVenuesModal';
 import { AdminAddPlayerModal } from './AdminAddPlayerModal';
@@ -25,7 +27,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
   onBack,
   currentUserId,
 }) => {
-  const { joinEvent, leaveEvent, deleteEvent, recordMatchScoreAction, facilities, toggleFavoriteFacility, updateTeams } = usePadel();
+  const { currentUser, events, joinEvent, leaveEvent, deleteEvent, recordMatchScoreAction, facilities, toggleFavoriteFacility, updateTeams } = usePadel();
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showManageVenuesModal, setShowManageVenuesModal] = useState(false);
   const [showAdminAddPlayerModal, setShowAdminAddPlayerModal] = useState(false);
@@ -37,6 +39,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
   const [swapNotice, setSwapNotice] = useState<string | null>(null);
 
   const facility = facilities.find((f) => f.id === event.facilityId);
+  const restriction = joinRestriction(currentUser, events, event);
   const isOwner = event.ownerId === currentUserId || event.participants[0]?.id === currentUserId;
   const isCoAdmin = event.coAdminIds.includes(currentUserId);
   const isAdmin = isOwner || isCoAdmin;
@@ -94,7 +97,7 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
             <h1 className="text-2xl font-black text-white font-display">{event.name}</h1>
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
               <span className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-emerald-400" /> {event.date} at {event.startTime}
+                <Calendar className="w-4 h-4 text-emerald-400" /> {event.date} at {event.startTime.slice(0, 5)}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-4 h-4 text-emerald-400" /> {event.facilityName}
@@ -198,6 +201,12 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
           </div>
         </div>
 
+        {!isParticipant && restriction && (
+          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs px-4 py-2.5 rounded-2xl flex items-center gap-2">
+            <span className="font-semibold">{restriction}</span>
+          </div>
+        )}
+
         {/* Players / Participants Status Bar */}
         <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -206,9 +215,9 @@ export const NormalMatchDetail: React.FC<NormalMatchDetailProps> = ({
             </div>
             <div>
               <p className="text-xs font-bold text-white">Registered Players ({confirmedCount}/4)</p>
-              <p className="text-[11px] text-slate-400">
-                {event.participants.map((p) => p.displayName).join(', ') || 'No players yet'}
-              </p>
+              <div className="flex flex-wrap gap-3 text-[11px] text-slate-400">
+                {event.participants.length ? event.participants.map((p) => <div key={p.id} className="flex items-center gap-2"><PlayerProfileButton playerId={p.id} displayName={p.displayName} isGuest={p.isGuest} /><span>{p.displayName}</span></div>) : 'No players yet'}
+              </div>
             </div>
           </div>
 

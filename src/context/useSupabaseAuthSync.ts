@@ -46,6 +46,17 @@ export const useSupabaseAuthSync = ({
       void applySession(session);
     });
 
-    return () => subscription.unsubscribe();
+    let active = true;
+    const refreshPlan = async () => {
+      if (document.visibilityState === 'hidden') return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
+      if (active && data) setCurrentUser((previous) => previous.id === user.id ? { ...previous, plan: data.plan } : previous);
+    };
+    const onFocus = () => { void refreshPlan().catch(() => {}); };
+    window.addEventListener('focus', onFocus);
+    const interval = window.setInterval(onFocus, 15000);
+    return () => { active = false; window.clearInterval(interval); window.removeEventListener('focus', onFocus); subscription.unsubscribe(); };
   }, [setAllPlayers, setCurrentUser, setIsAuthenticated]);
 };

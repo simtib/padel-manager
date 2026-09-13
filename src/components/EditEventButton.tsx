@@ -20,7 +20,7 @@ function EditEventModal({ event, onClose }: { event: EventItem; onClose: () => v
   const [description, setDescription] = useState(event.description || '');
   const [format, setFormat] = useState<EventFormat>(event.format || (event.type === 'normal_match' ? 'standard_3_sets' : 'custom'));
   const [date, setDate] = useState(event.date);
-  const [startTime, setStartTime] = useState(event.startTime);
+  const [startTime, setStartTime] = useState(event.startTime.slice(0, 5));
   const [visibility, setVisibility] = useState(event.visibility);
   const [maxPlayers, setMaxPlayers] = useState(event.maxPlayers);
   const [saving, setSaving] = useState(false);
@@ -59,7 +59,8 @@ function EditEventModal({ event, onClose }: { event: EventItem; onClose: () => v
           <label className="block">Event name<input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} /></label>
           <label className="block">Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} /></label>
           <label className="block">Game type<select disabled={formatLocked} value={format} onChange={(e) => { setFormat(e.target.value as EventFormat); if (e.target.value === 'standard_3_sets') setMaxPlayers(4); }} className={inputClass}>
-            <option value="standard_3_sets">Standard Game - 3 sets</option><option value="americano">Americano</option><option value="custom">Custom tournament</option>
+            {format === 'americano' && <option value="americano" hidden disabled>Current format (unchanged)</option>}
+            <option value="standard_3_sets">Standard Game - 3 sets</option><option value="custom">Custom tournament</option>
           </select></label>
           {formatLocked && <p className="text-xs text-amber-300">Game type is locked once teams or matches exist or the event has progressed beyond registration.</p>}
           <label className="block">Player capacity<input type="number" min={4} step={2} required disabled={format === 'standard_3_sets'} value={format === 'standard_3_sets' ? 4 : maxPlayers} onChange={(e) => setMaxPlayers(e.target.valueAsNumber)} className={inputClass} /></label>

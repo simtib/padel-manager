@@ -6,6 +6,7 @@ export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageF
   const { currentUser, updateProfile, events, leaveEvent, logoutAction, isAuthenticated, isAppAdmin } = usePadel();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   const [displayName, setDisplayName] = useState(currentUser.displayName);
   const [mobileNumber, setMobileNumber] = useState(currentUser.mobileNumber || '');
@@ -15,13 +16,13 @@ export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageF
     e.participants.some((p) => p.id === currentUser.id)
   );
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      displayName,
-      mobileNumber,
-    });
-    setIsEditing(false);
+    setProfileError('');
+    try {
+      await updateProfile({ displayName, mobileNumber });
+      setIsEditing(false);
+    } catch (error) { setProfileError(error instanceof Error ? error.message : 'Could not save your profile.'); }
   };
 
   const handleLogout = async () => {
@@ -30,6 +31,7 @@ export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageF
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {profileError && <p role="alert" className="text-rose-300">{profileError}</p>}
       {/* Profile Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
@@ -44,6 +46,7 @@ export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageF
               <h1 className="text-2xl font-black text-white font-display">
                 {currentUser.displayName}
               </h1>
+              <span className="text-xs text-slate-400">{(currentUser.role || 'user').replaceAll('_', ' ')} · {currentUser.plan === 'pro' ? 'Pro' : 'Free'} plan</span>
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3 py-0.5 rounded-full uppercase">
                 UAE Player 🎾
               </span>
@@ -123,6 +126,46 @@ export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageF
         </div>
       </div>
 
+      {/* Membership Plan & Entitlements Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span className={`text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full border ${
+              currentUser.plan === 'pro'
+                ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            }`}>
+              {currentUser.plan === 'pro' ? '★ Pro Member' : 'Free Member'}
+            </span>
+            <h3 className="font-bold text-white text-base mt-1">Plan Entitlements & Features</h3>
+          </div>
+          {currentUser.plan !== 'pro' && (
+            <span className="text-xs text-amber-300 font-semibold bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
+              Upgrade to Pro for Unlimited Organizing & Guest Support
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+            <p className="text-slate-400 font-medium">Organize Matches</p>
+            <p className="font-bold text-white">{currentUser.plan === 'pro' ? 'Unlimited active' : 'Max 1 active match'}</p>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+            <p className="text-slate-400 font-medium">Join Matches</p>
+            <p className="font-bold text-white">{currentUser.plan === 'pro' ? 'Unlimited matches' : 'Max 3 upcoming matches'}</p>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+            <p className="text-slate-400 font-medium">Guest Players</p>
+            <p className="font-bold text-white">{currentUser.plan === 'pro' ? 'Included' : 'Pro feature'}</p>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+            <p className="text-slate-400 font-medium">Waitlists</p>
+            <p className="font-bold text-white">{currentUser.plan === 'pro' ? 'Included' : 'Pro feature'}</p>
+          </div>
+        </div>
+      </div>
+
       {/* Active Tournament Registrations Section */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
@@ -165,7 +208,7 @@ export const ProfilePage: React.FC<{ onOpenMyFeedback: () => void; onOpenManageF
 
                     <div className="space-y-1 text-slate-400 text-[11px]">
                       <p className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-emerald-400" /> {evt.date} • {evt.startTime}
+                        <Calendar className="w-3.5 h-3.5 text-emerald-400" /> {evt.date} • {evt.startTime.slice(0, 5)}
                       </p>
                       <p className="flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-emerald-400" /> {evt.facilityName}

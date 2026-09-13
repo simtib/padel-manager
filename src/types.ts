@@ -24,7 +24,11 @@ export interface User {
   createdAt: string;
 }
 
+export type AppRole = 'user' | 'admin' | 'super_admin';
+
 export interface PlayerProfile extends User {
+  role: AppRole;
+  plan: 'free' | 'pro';
   eventsPlayed: number;
   matchesPlayed: number;
   matchesWon: number;

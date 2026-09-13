@@ -11,7 +11,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ event, onClose }) => {
   const [copied, setCopied] = useState(false);
 
   const shareUrl = `${window.location.origin}/join/${event.id}`;
-  const whatsappMessage = `🎾 You're invited to *${event.name}*!\n\n📅 Date: ${event.date} at ${event.startTime}\n📍 Venue: ${event.facilityName}\n👥 Capacity: ${event.maxPlayers} Players (${event.maxTeams} Teams)\n\nTap the link to register, choose your preferred partner, or add a guest:\n${shareUrl}`;
+  const whatsappMessage = `🎾 You're invited to *${event.name}*!\n\n📅 Date: ${event.date} at ${event.startTime.slice(0, 5)}\n📍 Venue: ${event.facilityName}\n👥 Capacity: ${event.maxPlayers} Players (${event.maxTeams} Teams)\n\nTap the link to register, choose your preferred partner, or add a guest:\n${shareUrl}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);

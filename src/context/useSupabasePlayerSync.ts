@@ -23,8 +23,8 @@ export const useSupabasePlayerSync = (
         // Fetch every page so the directory is not capped by the API row limit.
         const pageSize = 500;
         for (let offset = 0; !disposed; offset += pageSize) {
-          const { data, error } = await supabase.from('profiles')
-            .select('id, first_name, last_name, display_name, email, phone, avatar_url, created_at')
+          const { data, error } = await supabase.from('player_directory')
+            .select('id, first_name, last_name, display_name, avatar_url, created_at')
             .order('id')
             .range(offset, offset + pageSize - 1);
           if (error) throw error;

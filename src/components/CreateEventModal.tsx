@@ -1,7 +1,8 @@
+import { organizeRestriction } from '../context/planEntitlements';
 ﻿import React, { useState } from 'react';
 import { usePadel } from '../context/PadelContext';
 import { EventFormat } from '../types';
-import { Trophy, Users, MapPin, Calendar, Clock, ShieldCheck, X, Check, Info, Star, Map, ExternalLink, Settings2, Plus, RefreshCw, LayoutGrid } from 'lucide-react';
+import { Trophy, Users, MapPin, Calendar, Clock, ShieldCheck, X, Check, Info, Star, Map, ExternalLink, Settings2, Plus, LayoutGrid } from 'lucide-react';
 import { ManageVenuesModal } from './ManageVenuesModal';
 
 interface CreateEventModalProps {
@@ -10,30 +11,27 @@ interface CreateEventModalProps {
 }
 
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onSelectEvent }) => {
-  const { facilities, allPlayers, playerGroups, currentUser, createEvent, toggleFavoriteFacility, saveFacility } = usePadel();
+  const { events, facilities, allPlayers, playerGroups, currentUser, createEvent, toggleFavoriteFacility, saveFacility, isAppAdmin } = usePadel();
 
-  const [type, setType] = useState<'tournament' | 'normal_match'>('tournament');
-  const [format, setFormat] = useState<EventFormat>('custom');
+  const planRestriction = organizeRestriction(currentUser, events);
+  const [type, setType] = useState<'tournament' | 'normal_match' | null>(null);
+  const [format, setFormat] = useState<EventFormat | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [visibility, setVisibility] = useState<'private' | 'public'>('private');
+  const [visibility, setVisibility] = useState<'private' | 'public' | null>(null);
   const [playerGroupId, setPlayerGroupId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const availableGroups = playerGroups.filter((group) => group.ownerId === currentUser.id || group.memberIds.includes(currentUser.id));
-  const [facilityId, setFacilityId] = useState(facilities[0]?.id || '');
+  const [facilityId, setFacilityId] = useState('');
   const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([]);
-  const [date, setDate] = useState(() => {
-    const today = new Date();
-    const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60_000);
-    return localDate.toISOString().slice(0, 10);
-  });
-  const [startTime, setStartTime] = useState('19:00');
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('');
   const [maxPlayers, setMaxPlayers] = useState<number | null>(null);
   const [selectedCoAdminIds, setSelectedCoAdminIds] = useState<string[]>([]);
   const [showVenuesModal, setShowVenuesModal] = useState(false);
 
-  const selectedFacility = facilities.find((f) => f.id === facilityId) || facilities[0];
+  const selectedFacility = facilities.find((f) => f.id === facilityId);
 
   const handleFacilityChange = (id: string) => {
     setFacilityId(id);
@@ -67,7 +65,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
       setError('Select a player group for this private game.');
       return;
     }
-    if (!name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)) return;
+    if (!type || !format || !visibility || !name.trim() || !date || !startTime || !selectedFacility || (type === 'tournament' && maxPlayers === null)) return;
 
     setSaving(true);
     setError('');
@@ -130,12 +128,13 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {planRestriction && <p role="alert" className="text-sm text-amber-300">{planRestriction}</p>}
           {/* Format Selector */}
           <div>
             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
               Event Format
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Standard Game - 3 sets */}
               <button
                 type="button"
@@ -159,32 +158,6 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 <p className="font-bold text-sm text-white">Standard Game - 3 sets</p>
                 <p className="text-[11px] text-slate-400 mt-1 leading-snug">
                   Best of 3 full sets match format (6-4, 4-6, tiebreak)
-                </p>
-              </button>
-
-              {/* Americano */}
-              <button
-                type="button"
-                onClick={() => {
-                  setFormat('americano');
-                  setType('tournament');
-                  setMaxPlayers(null);
-                }}
-                className={`p-3.5 rounded-2xl border text-left transition-all relative ${
-                  format === 'americano'
-                    ? 'bg-purple-500/10 border-purple-500 text-white ring-1 ring-purple-500'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <RefreshCw className="w-5 h-5 text-purple-400" />
-                  {format === 'americano' && (
-                    <Check className="w-4 h-4 text-purple-400" />
-                  )}
-                </div>
-                <p className="font-bold text-sm text-white">Americano</p>
-                <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                  Individual partner rotation; total point accumulation
                 </p>
               </button>
 
@@ -317,7 +290,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                     onChange={(e) => handleFacilityChange(e.target.value)}
                     className="flex-1 bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm focus:border-emerald-500 outline-none"
                   >
-                    {facilities.length === 0 && <option value="">No venues available</option>}
+                    <option value="" disabled>{facilities.length === 0 ? 'No venues available' : 'Select a venue'}</option>
                     {/* Starred Favorites First */}
                     {facilities
                       .filter((f) => f.isFavorite)
@@ -396,12 +369,13 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                   type="url"
                   placeholder="Paste Google Maps URL here (e.g. https://maps.google.com/?q=...)"
                   value={selectedFacility.googleMapsUrl || ''}
+                  readOnly={!isAppAdmin}
                   onChange={(e) => {
                     const newUrl = e.target.value;
                     saveFacility({
                       ...selectedFacility,
                       googleMapsUrl: newUrl,
-                    });
+                    }).catch((error) => setError(error instanceof Error ? error.message : 'Could not update this venue.'));
                   }}
                   className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500 text-white rounded-xl p-2.5 text-xs outline-none"
                 />
@@ -423,12 +397,15 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
               </span>
             </div>
             {selectedFacility ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedFacility.courts.map((court) => {
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                {selectedFacility.courts.map((court, index) => {
                   const isSelected = selectedCourtIds.includes(court.id);
                   return (
                     <button
                       key={court.id}
+                      aria-label={`Court ${index + 1}: ${court.name}`}
+                      aria-pressed={isSelected}
+                      title={court.name}
                       type="button"
                       onClick={() => toggleCourt(court.id)}
                       className={`min-h-11 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
@@ -437,7 +414,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                       }`}
                     >
-                      {court.name}
+                      {index + 1}
                     </button>
                   );
                 })}
@@ -467,7 +444,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[16, 24, 32, 48].map((cap) => (
+                {[8, 16, 24, 32].map((cap) => (
                   <button
                     key={cap}
                     type="button"
@@ -531,7 +508,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
             </button>
             <button
               type="submit"
-              disabled={saving || (visibility === 'private' && !availableGroups.some((group) => group.id === playerGroupId)) || !name.trim() || !date || !selectedFacility || (type === 'tournament' && maxPlayers === null)}
+              disabled={!!planRestriction || saving || !type || !format || !visibility || (visibility === 'private' && !availableGroups.some((group) => group.id === playerGroupId)) || !name.trim() || !date || !startTime || !selectedFacility || (type === 'tournament' && maxPlayers === null)}
               className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none text-slate-950 font-extrabold text-xs py-3 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4" /> {saving ? 'Creating...' : 'Create & Launch Event'}

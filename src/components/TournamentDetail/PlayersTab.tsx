@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import { PlayerProfileButton } from '../PlayerProfileButton';
+import React, { useState } from 'react';
 import { EventItem, Participant, PartnerRequest } from '../../types';
 import { usePadel } from '../../context/PadelContext';
+import { joinRestriction } from '../../context/planEntitlements';
 import { AdminAddPlayerModal } from '../AdminAddPlayerModal';
 import {
   Users,
@@ -30,7 +32,8 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
   currentUserId,
 }) => {
   const {
-    allPlayers,
+    currentUser,
+    events,
     joinEvent,
     leaveEvent,
     removeParticipant,
@@ -47,10 +50,7 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
 
   const isAdmin = isOwner || isCoAdmin;
-  const playersById = useMemo(
-    () => new Map(allPlayers.map((player) => [player.id, player])),
-    [allPlayers]
-  );
+  const restriction = joinRestriction(currentUser, events, event);
 
   const confirmedParticipants = event.participants.filter((p) => p.status === 'confirmed');
   const waitingParticipants = event.participants
@@ -68,10 +68,10 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
     (r) => r.eventId === event.id && r.fromUserId === currentUserId
   );
 
-  const handleAddGuest = (e: React.FormEvent) => {
+  const handleAddGuest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestName.trim()) return;
-    addGuestPlayer(event.id, guestName.trim());
+    if (!await addGuestPlayer(event.id, guestName.trim())) return;
     setGuestName('');
     setShowAddGuestModal(false);
   };
@@ -113,15 +113,18 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
               Withdraw Registration
             </button>
           ) : (
-            <button
-              onClick={async () => await joinEvent(event.id)}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4 text-emerald-400" />
-              {confirmedParticipants.length >= event.maxPlayers
-                ? 'Join Waiting List'
-                : 'Register Myself'}
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={async () => await joinEvent(event.id)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4 text-emerald-400" />
+                {confirmedParticipants.length >= event.maxPlayers
+                  ? 'Join Waiting List'
+                  : 'Register Myself'}
+              </button>
+              {restriction && <span className="text-[11px] text-amber-300 font-medium">{restriction}</span>}
+            </div>
           )}
 
           {isUserRegistered && (
@@ -229,8 +232,6 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {confirmedParticipants.map((participant, idx) => {
-            const playerProfile = playersById.get(participant.id);
-            const avatar = playerProfile?.avatarUrl || `https://i.pravatar.cc/150?u=${participant.id}`;
 
             return (
               <div
@@ -241,11 +242,7 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
                   <span className="text-slate-500 font-bold text-xs w-4">
                     {String(idx + 1).padStart(2, '0')}
                   </span>
-                  <img
-                    src={avatar}
-                    alt={participant.displayName}
-                    className="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-700"
-                  />
+                  <PlayerProfileButton playerId={participant.id} displayName={participant.displayName} isGuest={participant.isGuest} />
                   <div>
                     <p className="font-bold text-white flex items-center gap-1.5">
                       {participant.displayName}
@@ -298,7 +295,7 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
                   <span className="bg-amber-500/20 text-amber-400 font-extrabold text-[11px] px-2 py-0.5 rounded-md">
                     #{p.waitingListPosition}
                   </span>
-                  <span className="font-bold text-white">{p.displayName}</span>
+                  <PlayerProfileButton playerId={p.id} displayName={p.displayName} isGuest={p.isGuest} /><span className="font-bold text-white">{p.displayName}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-slate-500 text-[10px]">On standby</span>
@@ -335,6 +332,11 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
             </p>
 
             <form onSubmit={handleAddGuest} className="space-y-4">
+              {currentUser.plan !== 'pro' && (
+                <p className="text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  Upgrade to Pro to add guest players.
+                </p>
+              )}
               <div>
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-1">
                   Guest Full Name *
@@ -359,7 +361,8 @@ export const PlayersTab: React.FC<PlayersTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-emerald-500 text-slate-950 font-bold text-xs py-2.5 rounded-xl shadow-md"
+                  disabled={!guestName.trim() || currentUser.plan !== 'pro'}
+                  className="flex-1 bg-emerald-500 disabled:opacity-50 text-slate-950 font-bold text-xs py-2.5 rounded-xl shadow-md"
                 >
                   Add Guest
                 </button>
